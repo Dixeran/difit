@@ -72,6 +72,13 @@ Open **Graph** in the diff viewer to browse the commit topology across branches.
 which local or remote branches are shown, search commits and refs, then select a base commit and a
 target commit. **Compare in difit** opens that comparison in the existing difit review UI.
 
+Run the latest version from the Dixeran fork directly with npx:
+
+```bash
+# npm 12 requires an explicit opt-in for Git dependencies
+npx --yes --allow-git=all github:Dixeran/difit
+```
+
 ### Special Arguments
 
 difit supports special keywords for common diff scenarios:

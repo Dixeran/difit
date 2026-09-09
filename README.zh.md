@@ -65,6 +65,13 @@ difit . origin/main  # 比较工作目录与远程 main
 
 在差异查看器中点击 **Graph**，即可查看多个分支之间的提交拓扑关系。你可以选择要显示的本地或远程分支、搜索提交与引用，然后依次选择 Base 和 Target 提交。点击 **Compare in difit** 后，会在 difit 原有的审查界面中显示两者的差异。
 
+可以直接通过 npx 运行 Dixeran fork 中的最新版本：
+
+```bash
+# npm 12 需要显式允许 Git 依赖
+npx --yes --allow-git=all github:Dixeran/difit
+```
+
 ### 特殊参数
 
 difit 支持常见差异场景的特殊关键字：
