@@ -46,6 +46,23 @@ describe('buildGitGraphRows', () => {
     expect(rows[1]?.column).toBe(1);
     expect(rows[1]?.hasIncomingLine).toBe(false);
   });
+
+  it('keeps a branch color when another lane merges and columns shift', () => {
+    const rows = buildGitGraphRows([
+      commit('merge', ['main-parent', 'feature-tip']),
+      commit('other-tip', ['other-parent']),
+      commit('feature-tip', ['main-parent']),
+      commit('other-parent', ['other-root']),
+      commit('main-parent', ['root']),
+      commit('other-root'),
+      commit('root'),
+    ]);
+
+    expect(rows[1]?.column).toBe(2);
+    expect(rows[3]?.column).toBe(1);
+    expect(rows[3]?.color).toBe(rows[1]?.color);
+    expect(rows[3]?.incoming).toContainEqual({ column: 1, color: rows[1]?.color });
+  });
 });
 
 describe('createCommitDiffSelection', () => {

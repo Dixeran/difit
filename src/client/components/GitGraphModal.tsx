@@ -28,57 +28,83 @@ interface GraphSegment {
   color: number;
 }
 
+interface GraphLane {
+  hash: string;
+  color: number;
+}
+
+interface IncomingSegment {
+  column: number;
+  color: number;
+}
+
 export interface GitGraphRow {
   commit: GitGraphCommit;
   column: number;
+  color: number;
   laneCount: number;
   hasIncomingLine: boolean;
-  incomingColumns: number[];
+  incoming: IncomingSegment[];
   outgoing: GraphSegment[];
 }
 
 export function buildGitGraphRows(commits: GitGraphCommit[]): GitGraphRow[] {
   const visibleHashes = new Set(commits.map((commit) => commit.hash));
-  const lanes: string[] = [];
+  const lanes: GraphLane[] = [];
+  let nextColor = 0;
 
   return commits.map((commit) => {
-    let column = lanes.indexOf(commit.hash);
+    let column = lanes.findIndex((lane) => lane.hash === commit.hash);
     const hasIncomingLine = column >= 0;
     if (column < 0) {
-      lanes.push(commit.hash);
+      lanes.push({ hash: commit.hash, color: nextColor++ });
       column = lanes.length - 1;
     }
 
-    const before = [...lanes];
+    const before = lanes.map((lane) => ({ ...lane }));
+    const currentLane = before[column];
+    if (!currentLane) throw new Error(`Missing graph lane for commit ${commit.hash}`);
     const parents = commit.parents.filter((parent) => visibleHashes.has(parent));
-    const after = before.filter((hash) => hash !== commit.hash);
+    const after = before.filter((lane) => lane.hash !== commit.hash);
 
     parents.forEach((parent, parentIndex) => {
-      if (after.includes(parent)) return;
+      if (after.some((lane) => lane.hash === parent)) return;
       const insertAt = Math.min(column + parentIndex, after.length);
-      after.splice(insertAt, 0, parent);
+      after.splice(insertAt, 0, {
+        hash: parent,
+        color: parentIndex === 0 ? currentLane.color : nextColor++,
+      });
     });
 
     const outgoing: GraphSegment[] = [];
-    before.forEach((hash, from) => {
-      if (hash === commit.hash) return;
-      const to = after.indexOf(hash);
-      if (to >= 0) outgoing.push({ from, to, color: from });
+    before.forEach((lane, from) => {
+      if (lane.hash === commit.hash) return;
+      const to = after.findIndex((nextLane) => nextLane.hash === lane.hash);
+      if (to >= 0) outgoing.push({ from, to, color: lane.color });
     });
     parents.forEach((parent, parentIndex) => {
-      const to = after.indexOf(parent);
-      if (to >= 0) outgoing.push({ from: column, to, color: column + parentIndex });
+      const to = after.findIndex((lane) => lane.hash === parent);
+      if (to >= 0) {
+        const parentLane = after[to];
+        if (!parentLane) return;
+        outgoing.push({
+          from: column,
+          to,
+          color: parentIndex === 0 ? currentLane.color : parentLane.color,
+        });
+      }
     });
 
     lanes.splice(0, lanes.length, ...after);
     return {
       commit,
       column,
+      color: currentLane.color,
       laneCount: Math.max(before.length, after.length, 1),
       hasIncomingLine,
-      incomingColumns: before
-        .map((_, index) => index)
-        .filter((index) => index !== column || hasIncomingLine),
+      incoming: before
+        .map((lane, index) => ({ column: index, color: lane.color }))
+        .filter(({ column: incomingColumn }) => incomingColumn !== column || hasIncomingLine),
       outgoing,
     };
   });
@@ -455,14 +481,14 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                       className="shrink-0"
                       aria-hidden="true"
                     >
-                      {row.incomingColumns.map((column) => (
+                      {row.incoming.map((segment) => (
                         <line
-                          key={`in-${column}`}
-                          x1={column * LANE_WIDTH + 14}
+                          key={`in-${segment.column}`}
+                          x1={segment.column * LANE_WIDTH + 14}
                           y1={0}
-                          x2={column * LANE_WIDTH + 14}
+                          x2={segment.column * LANE_WIDTH + 14}
                           y2={ROW_CENTER}
-                          stroke={GRAPH_COLORS[column % GRAPH_COLORS.length]}
+                          stroke={GRAPH_COLORS[segment.color % GRAPH_COLORS.length]}
                           strokeWidth="2"
                         />
                       ))}
@@ -483,9 +509,9 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                         cx={row.column * LANE_WIDTH + 14}
                         cy={ROW_CENTER}
                         r={selected ? 6 : 5}
-                        fill={selected ? '#0d1117' : GRAPH_COLORS[row.column % GRAPH_COLORS.length]}
+                        fill={selected ? '#0d1117' : GRAPH_COLORS[row.color % GRAPH_COLORS.length]}
                         stroke={
-                          selected ? '#f0f6fc' : GRAPH_COLORS[row.column % GRAPH_COLORS.length]
+                          selected ? '#f0f6fc' : GRAPH_COLORS[row.color % GRAPH_COLORS.length]
                         }
                         strokeWidth={selected ? 3 : 2}
                       />
