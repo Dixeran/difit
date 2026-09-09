@@ -38,6 +38,7 @@ import {
   type DiffResponse,
   type DiffSelection,
   type GeneratedStatusResponse,
+  type GitGraphResponse,
   type RevisionsResponse,
 } from '@/types/diff.js';
 import {
@@ -441,6 +442,31 @@ export async function startServer(
     } catch (error) {
       console.error('Error fetching revisions:', error);
       res.status(500).json({ error: 'Failed to fetch revisions' });
+    }
+  });
+
+  app.get('/api/git-graph', async (req, res) => {
+    if (options.stdinDiff) {
+      res.status(400).json({ error: 'Git graph is not available for stdin diff' });
+      return;
+    }
+
+    try {
+      const hasBranchFilter = Object.hasOwn(req.query, 'branch');
+      const branchQuery = req.query.branch;
+      const selectedBranches = hasBranchFilter
+        ? (Array.isArray(branchQuery) ? branchQuery : [branchQuery])
+            .filter((value): value is string => typeof value === 'string')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : undefined;
+      const requestedMaxCount = Number.parseInt(String(req.query.maxCount ?? ''), 10);
+      const maxCount = Number.isFinite(requestedMaxCount) ? requestedMaxCount : 500;
+      const response: GitGraphResponse = await parser.getGitGraph(selectedBranches, maxCount);
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching git graph:', error);
+      res.status(500).json({ error: 'Failed to fetch git graph' });
     }
   });
 

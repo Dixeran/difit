@@ -93,6 +93,32 @@ vi.mock('./git-diff.js', () => {
       resolvedBase: 'abc1234',
       resolvedTarget: 'def5678',
     });
+    getGitGraph = vi.fn().mockResolvedValue({
+      branches: [
+        {
+          ref: 'refs/heads/main',
+          name: 'main',
+          hash: 'abc1234',
+          current: true,
+          remote: false,
+        },
+      ],
+      selectedBranches: ['refs/heads/main'],
+      commits: [
+        {
+          hash: 'abc1234',
+          shortHash: 'abc1234',
+          parents: ['def5678'],
+          message: 'Test commit',
+          authorName: 'Test Author',
+          authorEmail: 'test@example.com',
+          authoredAt: '2026-01-01T00:00:00Z',
+          refs: ['main'],
+        },
+      ],
+      hasMore: false,
+      maxCount: 500,
+    });
   }
 
   return { GitDiffParser: GitDiffParserMock };
@@ -1360,6 +1386,27 @@ describe('Server Integration Tests', () => {
       expect(data.originDefaultBranch).toBe('origin/main');
       expect(data.resolvedBase).toBe('abc1234');
       expect(data.resolvedTarget).toBe('def5678');
+    });
+  });
+
+  describe('Git graph API', () => {
+    it('returns graph data and forwards selected branch refs', async () => {
+      const result = await startServer({
+        selection: { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
+      });
+      servers.push(result.server);
+
+      const branch = encodeURIComponent('refs/heads/main');
+      const response = await fetch(
+        `http://localhost:${result.port}/api/git-graph?branch=${branch}&maxCount=200`,
+      );
+      const data = (await response.json()) as any;
+      const parser = parserInstances.at(-1);
+
+      expect(response.ok).toBe(true);
+      expect(data.selectedBranches).toEqual(['refs/heads/main']);
+      expect(data.commits[0]).toMatchObject({ shortHash: 'abc1234', refs: ['main'] });
+      expect(parser.getGitGraph).toHaveBeenCalledWith(['refs/heads/main'], 200);
     });
   });
 

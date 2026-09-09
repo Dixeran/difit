@@ -8,6 +8,8 @@ import {
   type DiffLine,
   type DiffResponse,
   type DiffSelection,
+  type GitGraphBranch,
+  type GitGraphResponse,
 } from '../types/diff.js';
 import { getMergeBaseTargetRef, normalizeBaseMode } from '../utils/diffSelection.js';
 
@@ -864,6 +866,115 @@ export class GitDiffParser {
       originDefaultBranch: originDefaultBranch ?? undefined,
       resolvedBase,
       resolvedTarget,
+    };
+  }
+
+  private async getGraphBranches(): Promise<GitGraphBranch[]> {
+    const [refsOutput, currentBranch] = await Promise.all([
+      this.git.raw([
+        'for-each-ref',
+        '--format=%(refname)%00%(refname:short)%00%(objectname)',
+        'refs/heads',
+        'refs/remotes',
+      ]),
+      this.git
+        .raw(['symbolic-ref', '--quiet', '--short', 'HEAD'])
+        .then((value) => value.trim())
+        .catch(() => ''),
+    ]);
+
+    return refsOutput
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line): GitGraphBranch | null => {
+        const [ref, name, hash] = line.split('\0');
+        if (!ref || !name || !hash || ref.endsWith('/HEAD')) {
+          return null;
+        }
+        return {
+          ref,
+          name,
+          hash,
+          current: ref === `refs/heads/${currentBranch}`,
+          remote: ref.startsWith('refs/remotes/'),
+        };
+      })
+      .filter((branch): branch is GitGraphBranch => branch !== null)
+      .sort((a, b) => {
+        if (a.current !== b.current) return a.current ? -1 : 1;
+        if (a.remote !== b.remote) return a.remote ? 1 : -1;
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  async getGitGraph(selectedRefs?: string[], maxCount = 500): Promise<GitGraphResponse> {
+    const branches = await this.getGraphBranches();
+    const branchByRef = new Map(branches.map((branch) => [branch.ref, branch]));
+    const requestedRefs =
+      selectedRefs ?? branches.filter((branch) => !branch.remote).map((branch) => branch.ref);
+    const validRefs = [...new Set(requestedRefs)].filter((ref) => branchByRef.has(ref));
+    const boundedMaxCount = Math.min(1_000, Math.max(1, Math.trunc(maxCount)));
+
+    if (validRefs.length === 0) {
+      return {
+        branches,
+        selectedBranches: [],
+        commits: [],
+        hasMore: false,
+        maxCount: boundedMaxCount,
+      };
+    }
+
+    const logOutput = await this.git.raw([
+      'log',
+      '--topo-order',
+      '--date-order',
+      `--max-count=${boundedMaxCount + 1}`,
+      '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e',
+      ...validRefs,
+      '--',
+    ]);
+    const refsByHash = new Map<string, string[]>();
+    for (const branch of branches) {
+      const labels = refsByHash.get(branch.hash) ?? [];
+      labels.push(branch.name);
+      refsByHash.set(branch.hash, labels);
+    }
+
+    const parsedCommits = logOutput
+      .split('\x1e')
+      .map((record) => record.trim())
+      .filter(Boolean)
+      .map((record) => {
+        const [
+          hash = '',
+          parents = '',
+          authorName = '',
+          authorEmail = '',
+          authoredAt = '',
+          message = '',
+        ] = record.split('\x1f');
+        return {
+          hash,
+          shortHash: hash.slice(0, 7),
+          parents: parents ? parents.split(' ') : [],
+          message,
+          authorName,
+          authorEmail,
+          authoredAt,
+          refs: refsByHash.get(hash) ?? [],
+        };
+      })
+      .filter((commit) => commit.hash.length > 0);
+    const hasMore = parsedCommits.length > boundedMaxCount;
+
+    return {
+      branches,
+      selectedBranches: validRefs,
+      commits: parsedCommits.slice(0, boundedMaxCount),
+      hasMore,
+      maxCount: boundedMaxCount,
     };
   }
 }

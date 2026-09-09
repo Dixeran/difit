@@ -1,4 +1,12 @@
-import { Columns, AlignLeft, Settings, PanelLeftClose, PanelLeft, Keyboard } from 'lucide-react';
+import {
+  Columns,
+  AlignLeft,
+  Settings,
+  PanelLeftClose,
+  PanelLeft,
+  Keyboard,
+  GitBranch,
+} from 'lucide-react';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 import {
@@ -27,6 +35,7 @@ import { DiffQuickMenu } from './components/DiffQuickMenu';
 import { DiffViewer } from './components/DiffViewer';
 import { FileList } from './components/FileList';
 import { GitHubIcon } from './components/GitHubIcon';
+import { GitGraphModal } from './components/GitGraphModal';
 import { HelpModal } from './components/HelpModal';
 import { Logo } from './components/Logo';
 import { ReloadButton } from './components/ReloadButton';
@@ -142,6 +151,7 @@ function App() {
   const [hasTriggeredSparkles, setHasTriggeredSparkles] = useState(false);
   const [isCommentsListOpen, setIsCommentsListOpen] = useState(false);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [isGitGraphOpen, setIsGitGraphOpen] = useState(false);
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
   const collapsedInitializedRef = useRef(false);
   const diffScrollContainerRef = useRef<HTMLElement | null>(null);
@@ -1346,15 +1356,27 @@ function App() {
                 </div>
               </div>
               {revisionOptions ? (
-                <DiffQuickMenu
-                  options={revisionOptions}
-                  selection={selectedRevision}
-                  resolvedBaseRevision={resolvedBaseRevision}
-                  resolvedTargetRevision={resolvedTargetRevision}
-                  onSelectDiff={(selection) => void handleRevisionChange(selection)}
-                  onOpenAdvanced={() => setIsRevisionModalOpen(true)}
-                  compact={!isDesktop}
-                />
+                <div className="flex items-center gap-1.5">
+                  <DiffQuickMenu
+                    options={revisionOptions}
+                    selection={selectedRevision}
+                    resolvedBaseRevision={resolvedBaseRevision}
+                    resolvedTargetRevision={resolvedTargetRevision}
+                    onSelectDiff={(selection) => void handleRevisionChange(selection)}
+                    onOpenAdvanced={() => setIsRevisionModalOpen(true)}
+                    compact={!isDesktop}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsGitGraphOpen(true)}
+                    className="flex items-center gap-1.5 rounded border border-github-border bg-github-bg-tertiary px-2 py-1 text-xs text-github-text-secondary transition-colors hover:border-github-text-secondary hover:text-github-text-primary"
+                    title="Open Git Graph"
+                    aria-label="Open Git Graph"
+                  >
+                    <GitBranch size={13} />
+                    {isDesktop && <span>Graph</span>}
+                  </button>
+                </div>
               ) : (
                 <span className="text-xs">
                   Reviewing:{' '}
@@ -1387,6 +1409,11 @@ function App() {
             onApply={(selection) => void handleRevisionChange(selection)}
           />
         )}
+        <GitGraphModal
+          isOpen={isGitGraphOpen}
+          onClose={() => setIsGitGraphOpen(false)}
+          onCompare={(selection) => void handleRevisionChange(selection)}
+        />
 
         {isMobile && isFileTreeOpen && (
           <button

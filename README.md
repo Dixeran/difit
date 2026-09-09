@@ -66,6 +66,12 @@ difit feature main   # Compare branches
 difit . origin/main  # Compare working directory with remote main
 ```
 
+### Browse the Git graph
+
+Open **Graph** in the diff viewer to browse the commit topology across branches. You can choose
+which local or remote branches are shown, search commits and refs, then select a base commit and a
+target commit. **Compare in difit** opens that comparison in the existing difit review UI.
+
 ### Special Arguments
 
 difit supports special keywords for common diff scenarios:

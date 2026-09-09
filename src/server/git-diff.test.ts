@@ -1599,3 +1599,63 @@ index abc123..def456 100644
     });
   });
 });
+
+describe('GitDiffParser Git graph', () => {
+  it('filters requested refs and parses topology metadata', async () => {
+    const parser = new GitDiffParser(TEST_REPO_PATH);
+    const gitRaw = (parser as any).git.raw;
+    gitRaw.mockImplementation((args: string[]) => {
+      if (args[0] === 'for-each-ref') {
+        return Promise.resolve(
+          [
+            'refs/heads/main\0main\0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'refs/heads/feature\0feature\0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            'refs/remotes/origin/HEAD\0origin\0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          ].join('\n'),
+        );
+      }
+      if (args[0] === 'symbolic-ref') return Promise.resolve('main\n');
+      if (args[0] === 'log') {
+        return Promise.resolve(
+          [
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\x1faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x1fAda\x1fada@example.com\x1f2026-01-02T00:00:00Z\x1fFeature\x1e',
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x1f\x1fLinus\x1flinus@example.com\x1f2026-01-01T00:00:00Z\x1fRoot\x1e',
+          ].join('\n'),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected git command: ${args.join(' ')}`));
+    });
+
+    const graph = await parser.getGitGraph(['refs/heads/feature', 'refs/heads/not-found'], 100);
+
+    expect(graph.selectedBranches).toEqual(['refs/heads/feature']);
+    expect(graph.branches).toHaveLength(2);
+    expect(graph.commits).toHaveLength(2);
+    expect(graph.commits[0]).toMatchObject({
+      shortHash: 'bbbbbbb',
+      parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+      message: 'Feature',
+      authorName: 'Ada',
+      refs: ['feature'],
+    });
+    expect(gitRaw).toHaveBeenCalledWith(
+      expect.arrayContaining(['log', '--topo-order', 'refs/heads/feature', '--']),
+    );
+  });
+
+  it('returns no commits without invoking git log when no branches are selected', async () => {
+    const parser = new GitDiffParser(TEST_REPO_PATH);
+    const gitRaw = (parser as any).git.raw;
+    gitRaw.mockImplementation((args: string[]) => {
+      if (args[0] === 'for-each-ref') return Promise.resolve('');
+      if (args[0] === 'symbolic-ref') return Promise.resolve('');
+      return Promise.reject(new Error('git log should not run'));
+    });
+
+    await expect(parser.getGitGraph([])).resolves.toMatchObject({
+      branches: [],
+      selectedBranches: [],
+      commits: [],
+    });
+  });
+});

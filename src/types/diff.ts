@@ -225,6 +225,33 @@ export interface RevisionsResponse {
   resolvedTarget?: string;
 }
 
+export interface GitGraphBranch {
+  ref: string;
+  name: string;
+  hash: string;
+  current: boolean;
+  remote: boolean;
+}
+
+export interface GitGraphCommit {
+  hash: string;
+  shortHash: string;
+  parents: string[];
+  message: string;
+  authorName: string;
+  authorEmail: string;
+  authoredAt: string;
+  refs: string[];
+}
+
+export interface GitGraphResponse {
+  branches: GitGraphBranch[];
+  selectedBranches: string[];
+  commits: GitGraphCommit[];
+  hasMore: boolean;
+  maxCount: number;
+}
+
 // Expanded lines types for showing more context in diffs
 export interface ExpandedLinesState {
   [filePath: string]: FileExpandedState;

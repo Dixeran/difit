@@ -61,6 +61,10 @@ difit feature main   # 比较分支
 difit . origin/main  # 比较工作目录与远程 main
 ```
 
+### 浏览 Git 分支图
+
+在差异查看器中点击 **Graph**，即可查看多个分支之间的提交拓扑关系。你可以选择要显示的本地或远程分支、搜索提交与引用，然后依次选择 Base 和 Target 提交。点击 **Compare in difit** 后，会在 difit 原有的审查界面中显示两者的差异。
+
 ### 特殊参数
 
 difit 支持常见差异场景的特殊关键字：
