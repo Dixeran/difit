@@ -7,10 +7,11 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tscEntry = resolve(packageRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 const viteEntry = resolve(packageRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 
-const runNode = (entry, args, description) => {
+const runNode = (entry, args, description, env = process.env) => {
   const result = spawnSync(process.execPath, [entry, ...args], {
     cwd: packageRoot,
     stdio: 'inherit',
+    env,
   });
 
   if (result.error) throw result.error;
@@ -28,9 +29,26 @@ const installBuildDependencies = () => {
   const isPnpm = packageManagerEntry.toLowerCase().includes('pnpm');
   const installArgs = isPnpm
     ? ['install', '--ignore-scripts', '--frozen-lockfile']
-    : ['install', '--ignore-scripts', '--include=dev', '--no-save', '--no-audit', '--no-fund'];
+    : [
+        'install',
+        '--global=false',
+        '--ignore-scripts',
+        '--include=dev',
+        '--no-save',
+        '--no-audit',
+        '--no-fund',
+      ];
 
-  runNode(packageManagerEntry, installArgs, 'Installing build dependencies');
+  // npm forwards CLI config through the environment when preparing Git
+  // dependencies. In particular, `npm install -g <git-url>` leaks
+  // npm_config_global=true into this process. Explicitly reset it so the
+  // bootstrap install always populates this clone's node_modules directory.
+  const installEnvironment = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => key.toLowerCase() !== 'npm_config_global'),
+  );
+  installEnvironment.npm_config_global = 'false';
+
+  runNode(packageManagerEntry, installArgs, 'Installing build dependencies', installEnvironment);
 };
 
 if (!existsSync(tscEntry) || !existsSync(viteEntry)) {
