@@ -1,5 +1,7 @@
 import type { BaseMode, DiffSelection } from '../types/diff.js';
 
+export const EMPTY_TREE_COMMITISH = 'empty-tree';
+
 export function normalizeBaseMode(baseMode?: BaseMode): BaseMode {
   return baseMode ?? 'direct';
 }

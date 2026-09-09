@@ -11,6 +11,7 @@ vi.mock('simple-git', () => ({
     revparse: vi.fn(),
     diff: vi.fn(),
     raw: vi.fn(),
+    show: vi.fn(),
   })),
 }));
 
@@ -1595,6 +1596,32 @@ index abc123..def456 100644
         requestedBaseCommitish: 'origin/main',
         requestedTargetCommitish: '.',
         requestedBaseMode: 'merge-base',
+      });
+    });
+
+    it('renders a root commit against the empty tree', async () => {
+      const gitRevparse = (parser as any).git.revparse;
+      const gitShow = (parser as any).git.show;
+      gitRevparse.mockResolvedValueOnce('1234567890abcdef1234567890abcdef12345678');
+      gitShow.mockResolvedValue('');
+
+      const response = await parser.parseDiff({
+        targetCommitish: '1234567',
+        baseCommitish: 'empty-tree',
+      });
+
+      expect(gitShow).toHaveBeenCalledWith([
+        '1234567890abcdef1234567890abcdef12345678',
+        '--format=',
+        '--root',
+        '--patch',
+        '--no-ext-diff',
+        '--color=never',
+      ]);
+      expect(response).toMatchObject({
+        commit: 'empty-tree...1234567',
+        baseCommitish: 'empty-tree',
+        targetCommitish: '1234567',
       });
     });
   });

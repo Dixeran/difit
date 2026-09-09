@@ -11,7 +11,11 @@ import {
   type GitGraphBranch,
   type GitGraphResponse,
 } from '../types/diff.js';
-import { getMergeBaseTargetRef, normalizeBaseMode } from '../utils/diffSelection.js';
+import {
+  EMPTY_TREE_COMMITISH,
+  getMergeBaseTargetRef,
+  normalizeBaseMode,
+} from '../utils/diffSelection.js';
 
 import { isGeneratedFile } from './generated-file-check.js';
 
@@ -80,6 +84,7 @@ export class GitDiffParser {
       let resolvedBaseCommitish = effectiveBaseCommitish;
       let resolvedTargetCommitish = targetCommitish;
       let attributesRef = targetCommitish;
+      let useRootDiff = false;
 
       // Handle target special chars (base is always a regular commit)
       if (targetCommitish === 'working') {
@@ -99,14 +104,24 @@ export class GitDiffParser {
         resolvedBaseCommitish = shortHash(baseHash);
         diffArgs = [effectiveBaseCommitish];
       } else {
-        // Both are regular commits: standard commit-to-commit comparison
         const targetHash = await this.git.revparse([targetCommitish]);
-        const baseHash = await this.git.revparse([effectiveBaseCommitish]);
-        resolvedCommit = createCommitRangeString(shortHash(baseHash), shortHash(targetHash));
-        resolvedBaseCommitish = shortHash(baseHash);
         resolvedTargetCommitish = shortHash(targetHash);
         attributesRef = targetHash;
-        diffArgs = [baseHash, targetHash];
+
+        if (effectiveBaseCommitish === EMPTY_TREE_COMMITISH) {
+          // A root commit has no parent. `git show --root` renders it as additions
+          // without requiring an object-format-specific empty tree hash.
+          resolvedCommit = createCommitRangeString(EMPTY_TREE_COMMITISH, shortHash(targetHash));
+          resolvedBaseCommitish = EMPTY_TREE_COMMITISH;
+          diffArgs = [targetHash, '--format=', '--root', '--patch'];
+          useRootDiff = true;
+        } else {
+          // Both are regular commits: standard commit-to-commit comparison
+          const baseHash = await this.git.revparse([effectiveBaseCommitish]);
+          resolvedCommit = createCommitRangeString(shortHash(baseHash), shortHash(targetHash));
+          resolvedBaseCommitish = shortHash(baseHash);
+          diffArgs = [baseHash, targetHash];
+        }
       }
 
       if (ignoreWhitespace) {
@@ -122,7 +137,7 @@ export class GitDiffParser {
       diffArgs.push('--no-ext-diff', '--color=never');
 
       // Single git invocation for better startup latency on large repositories.
-      const diffRaw = await this.git.diff(diffArgs);
+      const diffRaw = useRootDiff ? await this.git.show(diffArgs) : await this.git.diff(diffArgs);
       const files = await this.markGitattributesGeneratedFiles(
         this.parseUnifiedDiff(diffRaw),
         attributesRef,

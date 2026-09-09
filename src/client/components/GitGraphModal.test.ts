@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { type GitGraphCommit } from '../../types/diff';
 
-import { buildGitGraphRows } from './GitGraphModal';
+import { buildGitGraphRows, createCommitDiffSelection } from './GitGraphModal';
 
 const commit = (hash: string, parents: string[] = []): GitGraphCommit => ({
   hash,
@@ -45,5 +45,21 @@ describe('buildGitGraphRows', () => {
     expect(rows[0]?.hasIncomingLine).toBe(false);
     expect(rows[1]?.column).toBe(1);
     expect(rows[1]?.hasIncomingLine).toBe(false);
+  });
+});
+
+describe('createCommitDiffSelection', () => {
+  it('compares a commit with its first parent', () => {
+    expect(createCommitDiffSelection(commit('merge', ['first-parent', 'second-parent']))).toEqual({
+      baseCommitish: 'first-parent',
+      targetCommitish: 'merge',
+    });
+  });
+
+  it('compares a root commit with the empty tree', () => {
+    expect(createCommitDiffSelection(commit('root'))).toEqual({
+      baseCommitish: 'empty-tree',
+      targetCommitish: 'root',
+    });
   });
 });

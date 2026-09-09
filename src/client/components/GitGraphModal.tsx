@@ -1,6 +1,8 @@
 import {
   ArrowRight,
   Check,
+  Copy,
+  FileDiff,
   GitBranch,
   GitCompareArrows,
   LoaderCircle,
@@ -12,7 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeysContext } from 'react-hotkeys-hook';
 
 import { type DiffSelection, type GitGraphCommit, type GitGraphResponse } from '../../types/diff';
-import { createDiffSelection } from '../../utils/diffSelection';
+import { createDiffSelection, EMPTY_TREE_COMMITISH } from '../../utils/diffSelection';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 const GRAPH_COLORS = ['#58a6ff', '#f778ba', '#a371f7', '#3fb950', '#d29922', '#f85149'];
 const LANE_WIDTH = 18;
@@ -81,6 +84,10 @@ export function buildGitGraphRows(commits: GitGraphCommit[]): GitGraphRow[] {
   });
 }
 
+export function createCommitDiffSelection(commit: GitGraphCommit): DiffSelection {
+  return createDiffSelection(commit.parents[0] ?? EMPTY_TREE_COMMITISH, commit.hash);
+}
+
 interface GitGraphModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -106,11 +113,13 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
   const [data, setData] = useState<GitGraphResponse | null>(null);
   const [pendingBranches, setPendingBranches] = useState<string[]>([]);
   const [selectedCommits, setSelectedCommits] = useState<GitGraphCommit[]>([]);
+  const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [branchQuery, setBranchQuery] = useState('');
   const [commitQuery, setCommitQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const copyResetTimeoutRef = useRef<number | null>(null);
   const { enableScope, disableScope } = useHotkeysContext();
 
   const loadGraph = useCallback(async (selectedBranches?: string[]) => {
@@ -172,6 +181,15 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(
+    () => () => {
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   const filteredBranches = useMemo(() => {
     const query = branchQuery.trim().toLowerCase();
     if (!data || !query) return data?.branches ?? [];
@@ -215,6 +233,26 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
     const [base, target] = selectedCommits;
     if (!base || !target) return;
     onCompare(createDiffSelection(base.hash, target.hash));
+    onClose();
+  };
+
+  const handleCopyHash = async (event: React.MouseEvent, hash: string) => {
+    event.stopPropagation();
+    try {
+      await copyTextToClipboard(hash);
+      setCopiedHash(hash);
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+      copyResetTimeoutRef.current = window.setTimeout(() => setCopiedHash(null), 1_500);
+    } catch (copyError) {
+      console.error('Failed to copy commit hash:', copyError);
+    }
+  };
+
+  const handleViewCommitDiff = (event: React.MouseEvent, commit: GitGraphCommit) => {
+    event.stopPropagation();
+    onCompare(createCommitDiffSelection(commit));
     onClose();
   };
 
@@ -300,10 +338,10 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                 return (
                   <label
                     key={branch.ref}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-github-bg-tertiary"
+                    className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-github-bg-tertiary"
                   >
                     <span
-                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
+                      className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
                         checked
                           ? 'border-blue-500 bg-blue-600 text-white'
                           : 'border-github-border bg-github-bg-primary'
@@ -317,16 +355,21 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                       onChange={() => toggleBranch(branch.ref)}
                       className="sr-only"
                     />
-                    <span className="min-w-0 flex-1 truncate text-github-text-primary">
+                    <span
+                      className="min-w-0 flex-1 break-all leading-5 text-github-text-primary"
+                      title={branch.name}
+                    >
                       {branch.name}
                     </span>
                     {branch.current && (
-                      <span className="rounded bg-github-accent/20 px-1 text-[10px] text-green-400">
+                      <span className="mt-0.5 shrink-0 rounded bg-github-accent/20 px-1 text-[10px] text-green-400">
                         current
                       </span>
                     )}
                     {branch.remote && (
-                      <span className="text-[10px] text-github-text-muted">remote</span>
+                      <span className="mt-0.5 shrink-0 text-[10px] text-github-text-muted">
+                        remote
+                      </span>
                     )}
                   </label>
                 );
@@ -388,10 +431,18 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                 );
                 const selected = selectionIndex >= 0;
                 return (
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     key={row.commit.hash}
                     onClick={() => toggleCommit(row.commit)}
+                    onKeyDown={(event) => {
+                      if (event.currentTarget !== event.target) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleCommit(row.commit);
+                      }
+                    }}
                     className={`flex w-full min-w-[720px] items-stretch border-b border-github-border/60 text-left transition-colors hover:bg-github-bg-secondary ${
                       selected ? 'bg-blue-950/30' : ''
                     }`}
@@ -470,8 +521,32 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                       <code className="w-16 shrink-0 text-xs text-github-text-secondary">
                         {row.commit.shortHash}
                       </code>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(event) => void handleCopyHash(event, row.commit.hash)}
+                          className="rounded p-1.5 text-github-text-muted hover:bg-github-bg-tertiary hover:text-github-text-primary"
+                          title="Copy full commit hash"
+                          aria-label={`Copy commit hash ${row.commit.shortHash}`}
+                        >
+                          {copiedHash === row.commit.hash ? (
+                            <Check size={14} className="text-green-400" />
+                          ) : (
+                            <Copy size={14} />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => handleViewCommitDiff(event, row.commit)}
+                          className="rounded p-1.5 text-github-text-muted hover:bg-github-bg-tertiary hover:text-github-text-primary"
+                          title="View this commit's diff"
+                          aria-label={`View diff for commit ${row.commit.shortHash}`}
+                        >
+                          <FileDiff size={14} />
+                        </button>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
