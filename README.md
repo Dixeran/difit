@@ -75,6 +75,9 @@ target commit. **Compare in difit** opens that comparison in the existing difit 
 Run the latest version from the Dixeran fork directly with npx:
 
 ```bash
+# npm 11 and earlier
+npx --yes github:Dixeran/difit
+
 # npm 12 requires an explicit opt-in for Git dependencies
 npx --yes --allow-git=all github:Dixeran/difit
 ```

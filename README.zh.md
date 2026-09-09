@@ -68,6 +68,9 @@ difit . origin/main  # 比较工作目录与远程 main
 可以直接通过 npx 运行 Dixeran fork 中的最新版本：
 
 ```bash
+# npm 11 及更早版本
+npx --yes github:Dixeran/difit
+
 # npm 12 需要显式允许 Git 依赖
 npx --yes --allow-git=all github:Dixeran/difit
 ```
