@@ -1,11 +1,14 @@
 import { spawn } from 'child_process';
 import { createHash } from 'crypto';
+import { readFile } from 'fs/promises';
 import { type Server } from 'http';
+import { createRequire } from 'module';
 import { join, dirname, isAbsolute, resolve, sep } from 'path';
 import { fileURLToPath } from 'url';
 
 import express, { type Express } from 'express';
 import open from 'open';
+import { getAvailableQueries, getWasmPath } from 'tree-sitter-wasm';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,6 +27,7 @@ import {
   resolveEditorOption,
 } from '../utils/editorOptions.js';
 import { getFileExtension } from '../utils/fileUtils.js';
+import { isTreeSitterLanguageId } from '../utils/treeSitterLanguages.js';
 
 import { FileWatcherService } from './file-watcher.js';
 import { GitDiffParser } from './git-diff.js';
@@ -46,6 +50,9 @@ import {
   diffSelectionsEqual,
   getDiffSelectionKey,
 } from '../utils/diffSelection.js';
+
+const require = createRequire(import.meta.url);
+const treeSitterRuntimePath = require.resolve('web-tree-sitter/web-tree-sitter.wasm');
 
 interface ServerOptions {
   selection?: DiffSelection;
@@ -516,6 +523,45 @@ export async function startServer(
       console.error('Error fetching line count:', error);
       res.status(500).json({ error: 'Failed to get line count' });
     }
+  });
+
+  app.get('/api/tree-sitter/runtime.wasm', async (_req, res) => {
+    res.setHeader('Content-Type', 'application/wasm');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(await readFile(treeSitterRuntimePath));
+  });
+
+  app.get('/api/tree-sitter/:language/parser.wasm', async (req, res) => {
+    const language = String(req.params.language ?? '');
+    if (!isTreeSitterLanguageId(language)) {
+      res.status(404).json({ error: 'Unsupported Tree-sitter language' });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'application/wasm');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(await readFile(getWasmPath(language)));
+  });
+
+  app.get('/api/tree-sitter/:language/:query.scm', async (req, res) => {
+    const language = String(req.params.language ?? '');
+    const query = String(req.params.query ?? '');
+    if (!isTreeSitterLanguageId(language)) {
+      res.status(404).json({ error: 'Unsupported Tree-sitter language' });
+      return;
+    }
+
+    const queryPath = Object.entries(getAvailableQueries(language)).find(
+      ([queryName]) => queryName === query,
+    )?.[1];
+    if (!queryPath) {
+      res.status(404).json({ error: 'Tree-sitter query not found' });
+      return;
+    }
+
+    res.type('text/plain');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(await readFile(queryPath));
   });
 
   app.get(/^\/api\/blob\/(.*)$/, async (req, res) => {

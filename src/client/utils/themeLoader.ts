@@ -1,5 +1,6 @@
 // Theme configuration
 const LIGHT_THEMES = [
+  { id: 'vscodeModernLight', label: 'VS Code Modern Light' },
   { id: 'github', label: 'GitHub Light' },
   { id: 'vsLight', label: 'VS Light' },
   { id: 'oneLight', label: 'One Light' },
@@ -8,6 +9,7 @@ const LIGHT_THEMES = [
 ];
 
 const DARK_THEMES = [
+  { id: 'vscodeModernDark', label: 'VS Code Modern Dark' },
   { id: 'vsDark', label: 'VS Dark' },
   { id: 'oneDark', label: 'One Dark' },
   { id: 'gruvboxMaterialDark', label: 'Gruvbox Material Dark' },

@@ -1,4 +1,5 @@
 import { getFileExtension, getFileName } from '../../utils/fileUtils';
+import type { TreeSitterLanguageId } from '../../utils/treeSitterLanguages';
 
 // Diff metadata: use generic language names (e.g. tsx -> typescript) for snapshots/comments.
 const DIFF_EXTENSION_LANGUAGE_MAP: Record<string, string> = {
@@ -145,10 +146,10 @@ const PRISM_FILENAME_LANGUAGE_MAP: Record<string, string> = {
   '.profile': 'bash',
 };
 
-function getLanguageFromExtension(
+function getLanguageFromExtension<T extends string>(
   extension: string | null,
-  map: Record<string, string>,
-): string | undefined {
+  map: Record<string, T>,
+): T | undefined {
   if (!extension) return undefined;
   return map[extension.toLowerCase()];
 }
@@ -166,17 +167,91 @@ export function getPrismLanguageFromFilename(filename: string): string {
   );
 }
 
-// Extensions for component-style formats that embed multiple languages
-// (e.g. Vue/Svelte/Astro SFCs). These are
-// highlighted by tokenizing the whole file so embedded blocks render correctly.
-const WHOLE_FILE_HIGHLIGHT_EXTENSIONS = new Set(['vue', 'svelte', 'astro']);
+const TREE_SITTER_EXTENSION_LANGUAGE_MAP: Record<string, TreeSitterLanguageId> = {
+  astro: 'astro',
+  bash: 'bash',
+  c: 'c',
+  cjs: 'javascript',
+  clj: 'clojure',
+  cljc: 'clojure',
+  cljs: 'clojure',
+  cpp: 'cpp',
+  cs: 'c_sharp',
+  css: 'css',
+  cts: 'typescript',
+  dart: 'dart',
+  ex: 'elixir',
+  exs: 'elixir',
+  gd: 'gdscript',
+  go: 'go',
+  gradle: 'groovy',
+  groovy: 'groovy',
+  gsh: 'groovy',
+  gvy: 'groovy',
+  gy: 'groovy',
+  hcl: 'hcl',
+  heex: 'elixir',
+  hs: 'haskell',
+  html: 'html',
+  ini: 'ini',
+  java: 'java',
+  js: 'javascript',
+  json: 'json',
+  jsx: 'tsx',
+  kt: 'kotlin',
+  lua: 'lua',
+  mjs: 'javascript',
+  mts: 'typescript',
+  nix: 'nix',
+  perl: 'perl',
+  php: 'php',
+  pl: 'perl',
+  pm: 'perl',
+  proto: 'proto',
+  py: 'python',
+  r: 'r',
+  rb: 'ruby',
+  rs: 'rust',
+  scala: 'scala',
+  scss: 'scss',
+  sh: 'bash',
+  sol: 'solidity',
+  sql: 'sql',
+  svelte: 'svelte',
+  swift: 'swift',
+  tf: 'hcl',
+  tfvars: 'hcl',
+  toml: 'toml',
+  ts: 'typescript',
+  tsx: 'tsx',
+  vim: 'vim',
+  vue: 'vue',
+  xml: 'xml',
+  yaml: 'yaml',
+  yml: 'yaml',
+  zsh: 'bash',
+};
+
+const TREE_SITTER_FILENAME_LANGUAGE_MAP: Record<string, TreeSitterLanguageId> = {
+  '.bash_profile': 'bash',
+  '.bashrc': 'bash',
+  '.env': 'bash',
+  '.profile': 'bash',
+  '.zshrc': 'bash',
+  dockerfile: 'dockerfile',
+  makefile: 'make',
+};
 
 /**
- * Whether a file is eligible for whole-file syntax highlighting based on its
- * extension. The line-count limit is enforced separately once the file content
- * is available (see useFileLevelTokens).
+ * Returns the Tree-sitter grammar used to parse a complete diff-side blob.
+ * Undefined means that the line renderer should retain its Prism fallback.
  */
-export function isWholeFileHighlightExtension(filePath: string): boolean {
-  const ext = getFileExtension(filePath);
-  return ext != null && WHOLE_FILE_HIGHLIGHT_EXTENSIONS.has(ext);
+export function getTreeSitterLanguageFromFilename(
+  filename: string,
+): TreeSitterLanguageId | undefined {
+  const basename = getFileName(filename).toLowerCase();
+  return (
+    TREE_SITTER_FILENAME_LANGUAGE_MAP[basename] ??
+    getLanguageFromExtension(getFileExtension(filename), TREE_SITTER_EXTENSION_LANGUAGE_MAP)
+  );
 }

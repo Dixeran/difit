@@ -86,12 +86,12 @@ describe('useAppearanceSettings', () => {
 
       await waitFor(() => {
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-        expect(result.current.settings.syntaxTheme).toBe('github');
+        expect(result.current.settings.syntaxTheme).toBe('vscodeModernLight');
       });
 
       expect(JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? '{}')).toMatchObject({
         theme: 'auto',
-        syntaxTheme: 'github',
+        syntaxTheme: 'vscodeModernLight',
       });
     });
   });

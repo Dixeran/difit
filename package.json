@@ -82,7 +82,9 @@
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "simple-git": "^3.28.0"
+    "simple-git": "^3.28.0",
+    "tree-sitter-wasm": "^1.1.7",
+    "web-tree-sitter": "^0.27.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",

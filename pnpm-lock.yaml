@@ -65,6 +65,12 @@ importers:
       simple-git:
         specifier: ^3.28.0
         version: 3.36.0
+      tree-sitter-wasm:
+        specifier: ^1.1.7
+        version: 1.1.7
+      web-tree-sitter:
+        specifier: ^0.27.0
+        version: 0.27.0
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.11
@@ -2475,6 +2481,7 @@ packages:
   eslint@9.39.2:
     resolution: {integrity: sha512-LEyamqS7W5HB3ujJyvi0HQK/dtVINZvd5mAAp9eT5S/ujByGjiZLCzPcHVzuXbpJDJF/cxwHlfceVUDZ2lnSTw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -3976,6 +3983,9 @@ packages:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
 
+  tree-sitter-wasm@1.1.7:
+    resolution: {integrity: sha512-hVGoG4EWo5mwqoJdPpBe7Qlm1rhy6NLgKVEdraFfMjRk1uVWIiJmJHz9udGseyZURlxsUazhoWC4HtXbRUa2vQ==}
+
   trim-lines@3.0.1:
     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
 
@@ -4194,6 +4204,9 @@ packages:
   walk-up-path@4.0.0:
     resolution: {integrity: sha512-3hu+tD8YzSLGuFYtPRb48vdhKMi0KQV5sn+uWr8+7dMEq/2G/dtLrdDinkLjqq5TIbIBjYJ4Ax/n3YiaW7QM8A==}
     engines: {node: 20 || >=22}
+
+  web-tree-sitter@0.27.0:
+    resolution: {integrity: sha512-XK08gj6RwTMQatAG7uVRP8MunqotL/XC19vHgkSPKmELgbGPBj4ECvB8haHOUnyj6ls2B8t42UTro14zxGgAHg==}
 
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
@@ -8310,6 +8323,8 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
+  tree-sitter-wasm@1.1.7: {}
+
   trim-lines@3.0.1: {}
 
   trough@2.2.0: {}
@@ -8476,6 +8491,8 @@ snapshots:
       - msw
 
   walk-up-path@4.0.0: {}
+
+  web-tree-sitter@0.27.0: {}
 
   whatwg-encoding@3.1.1:
     dependencies:

@@ -1497,6 +1497,49 @@ describe('Server Integration Tests', () => {
     });
   });
 
+  describe('Tree-sitter asset endpoints', () => {
+    let port: number;
+
+    beforeEach(async () => {
+      const result = await startServer({
+        selection: { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
+        preferredPort: 9058,
+      });
+      servers.push(result.server);
+      port = result.port;
+    });
+
+    it('serves the Tree-sitter runtime and language parser as WASM', async () => {
+      const runtime = await fetch(`http://localhost:${port}/api/tree-sitter/runtime.wasm`);
+      const parser = await fetch(`http://localhost:${port}/api/tree-sitter/typescript/parser.wasm`);
+
+      expect(runtime.ok).toBe(true);
+      expect(runtime.headers.get('Content-Type')).toContain('application/wasm');
+      expect((await runtime.arrayBuffer()).byteLength).toBeGreaterThan(0);
+      expect(parser.ok).toBe(true);
+      expect(parser.headers.get('Content-Type')).toContain('application/wasm');
+      expect((await parser.arrayBuffer()).byteLength).toBeGreaterThan(0);
+    });
+
+    it('serves highlight queries and rejects unknown assets', async () => {
+      const query = await fetch(
+        `http://localhost:${port}/api/tree-sitter/typescript/highlights.scm`,
+      );
+      const unknownLanguage = await fetch(
+        `http://localhost:${port}/api/tree-sitter/not-a-language/parser.wasm`,
+      );
+      const unknownQuery = await fetch(
+        `http://localhost:${port}/api/tree-sitter/typescript/not-a-query.scm`,
+      );
+
+      expect(query.ok).toBe(true);
+      expect(query.headers.get('Content-Type')).toContain('text/plain');
+      expect(await query.text()).toContain('type_identifier');
+      expect(unknownLanguage.status).toBe(404);
+      expect(unknownQuery.status).toBe(404);
+    });
+  });
+
   describe('Blob API endpoints', () => {
     let port: number;
 

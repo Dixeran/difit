@@ -709,7 +709,7 @@ export function SideBySideDiffChunk({
                             filename={filename}
                             precomputedTokens={getProcomputedTokens(
                               getOldTokens,
-                              sideLine.oldLine.oldLineNumber,
+                              sideLine.oldLineNumber,
                             )}
                           />
                         )}
@@ -768,7 +768,7 @@ export function SideBySideDiffChunk({
                             filename={filename}
                             precomputedTokens={getProcomputedTokens(
                               getNewTokens,
-                              sideLine.newLine.newLineNumber,
+                              sideLine.newLineNumber,
                             )}
                           />
                         )}

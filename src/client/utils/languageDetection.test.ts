@@ -1,32 +1,27 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { isWholeFileHighlightExtension } from './languageDetection';
+import { getTreeSitterLanguageFromFilename } from './languageDetection';
 
-describe('languageDetection', () => {
-  describe('isWholeFileHighlightExtension', () => {
-    it('returns true for component-style extensions', () => {
-      expect(isWholeFileHighlightExtension('src/App.vue')).toBe(true);
-      expect(isWholeFileHighlightExtension('src/App.svelte')).toBe(true);
-      expect(isWholeFileHighlightExtension('pages/index.astro')).toBe(true);
-    });
+describe('getTreeSitterLanguageFromFilename', () => {
+  it('maps source and component extensions to their parsing grammars', () => {
+    expect(getTreeSitterLanguageFromFilename('src/app.ts')).toBe('typescript');
+    expect(getTreeSitterLanguageFromFilename('src/App.tsx')).toBe('tsx');
+    expect(getTreeSitterLanguageFromFilename('src/App.jsx')).toBe('tsx');
+    expect(getTreeSitterLanguageFromFilename('src/App.vue')).toBe('vue');
+    expect(getTreeSitterLanguageFromFilename('src/App.svelte')).toBe('svelte');
+    expect(getTreeSitterLanguageFromFilename('pages/index.astro')).toBe('astro');
+    expect(getTreeSitterLanguageFromFilename('native/main.cpp')).toBe('cpp');
+  });
 
-    it('is case-insensitive', () => {
-      expect(isWholeFileHighlightExtension('Component.VUE')).toBe(true);
-      expect(isWholeFileHighlightExtension('Component.SVELTE')).toBe(true);
-    });
+  it('is case-insensitive and supports extensionless well-known files', () => {
+    expect(getTreeSitterLanguageFromFilename('Component.VUE')).toBe('vue');
+    expect(getTreeSitterLanguageFromFilename('Dockerfile')).toBe('dockerfile');
+    expect(getTreeSitterLanguageFromFilename('Makefile')).toBe('make');
+  });
 
-    it('returns false for other extensions', () => {
-      expect(isWholeFileHighlightExtension('src/app.ts')).toBe(false);
-      expect(isWholeFileHighlightExtension('src/app.tsx')).toBe(false);
-      expect(isWholeFileHighlightExtension('main.js')).toBe(false);
-      expect(isWholeFileHighlightExtension('index.html')).toBe(false);
-      expect(isWholeFileHighlightExtension('styles.css')).toBe(false);
-      expect(isWholeFileHighlightExtension('README.md')).toBe(false);
-    });
-
-    it('returns false when there is no extension', () => {
-      expect(isWholeFileHighlightExtension('Dockerfile')).toBe(false);
-      expect(isWholeFileHighlightExtension('')).toBe(false);
-    });
+  it('returns undefined so unsupported files retain the line-level fallback', () => {
+    expect(getTreeSitterLanguageFromFilename('README.md')).toBeUndefined();
+    expect(getTreeSitterLanguageFromFilename('archive.bin')).toBeUndefined();
+    expect(getTreeSitterLanguageFromFilename('')).toBeUndefined();
   });
 });

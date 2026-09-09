@@ -1,10 +1,9 @@
-import { normalizeTokens, type Token } from 'prism-react-renderer';
+import { type Token } from 'prism-react-renderer';
 import { useEffect, useMemo, useState } from 'react';
 
 import { type DiffFile } from '../../types/diff';
-import { getPrismLanguageFromFilename } from '../utils/languageDetection';
-import { loadPrismLanguage } from '../utils/languageLoader';
-import Prism from '../utils/prism';
+import { getTreeSitterLanguageFromFilename } from '../utils/languageDetection';
+import { tokenizeWithTreeSitter } from '../utils/treeSitterTokenizer';
 
 type LineTokensGetter = (lineNumber: number) => Token[] | null;
 
@@ -15,10 +14,6 @@ export interface FileLevelTokens {
 
 const EMPTY: FileLevelTokens = { getOldTokens: null, getNewTokens: null };
 
-// Whole-file tokenization is skipped for larger files so we don't pay the cost
-// of highlighting the entire blob; these fall back to per-line highlighting.
-const MAX_WHOLE_FILE_LINES = 2000;
-
 async function fetchBlobText(filePath: string, ref: string): Promise<string | null> {
   try {
     const response = await fetch(
@@ -26,18 +21,6 @@ async function fetchBlobText(filePath: string, ref: string): Promise<string | nu
     );
     if (!response.ok) return null;
     return await response.text();
-  } catch {
-    return null;
-  }
-}
-
-function tokenizeContent(content: string, language: string): Token[][] | null {
-  if (content.split('\n').length > MAX_WHOLE_FILE_LINES) return null;
-  const grammar = Prism.languages[language];
-  if (!grammar) return null;
-  try {
-    const raw = Prism.tokenize(content, grammar);
-    return normalizeTokens(raw);
   } catch {
     return null;
   }
@@ -58,36 +41,17 @@ export function useFileLevelTokens({
   targetCommitish,
   reloadKey,
 }: UseFileLevelTokensParams): FileLevelTokens {
-  const language = useMemo(() => getPrismLanguageFromFilename(file.path), [file.path]);
+  const language = useMemo(() => getTreeSitterLanguageFromFilename(file.path), [file.path]);
+  const treeSitterEnabled = enabled && language !== undefined;
   const isStdinDiff = baseCommitish === 'stdin' || targetCommitish === 'stdin';
 
   const [oldContent, setOldContent] = useState<string | null>(null);
   const [newContent, setNewContent] = useState<string | null>(null);
-  const [grammarReady, setGrammarReady] = useState<boolean>(
-    () => !enabled || !!Prism.languages[language],
-  );
+  const [oldTokens, setOldTokens] = useState<Token[][] | null>(null);
+  const [newTokens, setNewTokens] = useState<Token[][] | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (Prism.languages[language]) {
-      setGrammarReady(true);
-      return;
-    }
-    let cancelled = false;
-    loadPrismLanguage(language)
-      .then(() => {
-        if (!cancelled) setGrammarReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setGrammarReady(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, language]);
-
-  useEffect(() => {
-    if (!enabled || isStdinDiff) {
+    if (!treeSitterEnabled || isStdinDiff) {
       setOldContent(null);
       setNewContent(null);
       return;
@@ -113,7 +77,7 @@ export function useFileLevelTokens({
       cancelled = true;
     };
   }, [
-    enabled,
+    treeSitterEnabled,
     file.path,
     file.oldPath,
     file.status,
@@ -123,18 +87,36 @@ export function useFileLevelTokens({
     isStdinDiff,
   ]);
 
-  const oldTokens = useMemo<Token[][] | null>(() => {
-    if (!enabled || !grammarReady || oldContent == null) return null;
-    return tokenizeContent(oldContent, language);
-  }, [enabled, grammarReady, oldContent, language]);
+  useEffect(() => {
+    if (!enabled || language === undefined || oldContent == null) {
+      setOldTokens(null);
+      return;
+    }
+    let cancelled = false;
+    void tokenizeWithTreeSitter(oldContent, language).then((tokens) => {
+      if (!cancelled) setOldTokens(tokens);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, language, oldContent, treeSitterEnabled]);
 
-  const newTokens = useMemo<Token[][] | null>(() => {
-    if (!enabled || !grammarReady || newContent == null) return null;
-    return tokenizeContent(newContent, language);
-  }, [enabled, grammarReady, newContent, language]);
+  useEffect(() => {
+    if (!enabled || language === undefined || newContent == null) {
+      setNewTokens(null);
+      return;
+    }
+    let cancelled = false;
+    void tokenizeWithTreeSitter(newContent, language).then((tokens) => {
+      if (!cancelled) setNewTokens(tokens);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, language, newContent, treeSitterEnabled]);
 
   return useMemo<FileLevelTokens>(() => {
-    if (!enabled) return EMPTY;
+    if (!treeSitterEnabled) return EMPTY;
     const getOldTokens: LineTokensGetter | null = oldTokens
       ? (lineNumber: number) => oldTokens[lineNumber - 1] ?? null
       : null;
@@ -142,5 +124,5 @@ export function useFileLevelTokens({
       ? (lineNumber: number) => newTokens[lineNumber - 1] ?? null
       : null;
     return { getOldTokens, getNewTokens };
-  }, [enabled, oldTokens, newTokens]);
+  }, [treeSitterEnabled, oldTokens, newTokens]);
 }

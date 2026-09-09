@@ -11,7 +11,6 @@ import { FileLevelTokensProvider } from '../contexts/FileLevelTokensContext';
 import { type CursorPosition } from '../hooks/keyboardNavigation';
 import { type MergedChunk } from '../hooks/useExpandedLines';
 import { useFileLevelTokens } from '../hooks/useFileLevelTokens';
-import { isWholeFileHighlightExtension } from '../utils/languageDetection';
 import { getViewerForFile } from '../viewers/registry';
 import type { DiffViewerBodyProps } from '../viewers/types';
 
@@ -216,10 +215,9 @@ export const DiffViewer = memo(function DiffViewer({
   const viewer = getViewerForFile(file);
   const hasBlobContent = baseCommitish !== 'stdin' && targetCommitish !== 'stdin';
   const canExpandHiddenLines = hasBlobContent && (viewer.canExpandHiddenLines?.(file) ?? false);
-  // Tokenize the whole file so embedded blocks (e.g. <script>/<style>) are
-  // highlighted by their own language instead of line-by-line, which can't see
-  // the surrounding context.
-  const wholeFileHighlight = viewer.id === 'default' && isWholeFileHighlightExtension(file.path);
+  // Tree-sitter parses each complete old/new blob. The existing diff chunks still
+  // decide which lines are rendered, so collapsed ranges remain collapsed.
+  const treeSitterHighlight = viewer.id === 'default' && isVisible && !isCollapsed;
 
   // Observe visibility for lazy prefetch
   useEffect(() => {
@@ -326,7 +324,7 @@ export const DiffViewer = memo(function DiffViewer({
 
   const fileLevelTokens = useFileLevelTokens({
     file,
-    enabled: wholeFileHighlight,
+    enabled: treeSitterHighlight,
     baseCommitish,
     targetCommitish,
     reloadKey: diffVersion,

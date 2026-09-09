@@ -32,7 +32,7 @@ export const PrismSyntaxHighlighter = React.memo(function PrismSyntaxHighlighter
   code,
   language,
   className,
-  syntaxTheme = 'vsDark',
+  syntaxTheme = 'vscodeModernDark',
   filename = '',
   precomputedTokens,
   renderToken,

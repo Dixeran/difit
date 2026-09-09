@@ -48,7 +48,7 @@ const DEFAULT_SETTINGS: AppearanceSettings = {
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
   theme: 'dark',
-  syntaxTheme: 'vsDark',
+  syntaxTheme: 'vscodeModernDark',
   editor: {
     id: DEFAULT_EDITOR_OPTION.id,
     command: DEFAULT_EDITOR_OPTION.command,

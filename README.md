@@ -286,7 +286,7 @@ pnpm run format
 - **GitHub Integration**: GitHub CLI (`gh pr diff --patch`) for PR patch retrieval
 - **Frontend**: React 18 + TypeScript + Vite
 - **Styling**: Tailwind CSS v4 with GitHub-like dark theme
-- **Syntax Highlighting**: Prism.js with dynamic language loading
+- **Syntax Highlighting**: Tree-sitter full-file parsing for diffs, with Prism.js fallbacks
 - **Testing**: Vitest for unit tests with co-located test files
 - **Quality**: oxlint, oxfmt, lefthook pre-commit hooks
 
