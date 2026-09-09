@@ -50,6 +50,35 @@ describe('FileList', () => {
     expect(screen.getByText('-5')).toBeInTheDocument();
   });
 
+  it('renders additions and deletions at the end of each file row', () => {
+    render(
+      <FileList
+        files={[
+          createFile('README.md', { additions: 3, deletions: 1 }),
+          createFile('src/client/App.tsx', { additions: 2, deletions: 4 }),
+        ]}
+        onScrollToFile={vi.fn()}
+        comments={[]}
+        reviewedFiles={new Set()}
+        onToggleReviewed={vi.fn()}
+        onToggleFolderReviewed={vi.fn()}
+        selectedFileIndex={null}
+      />,
+    );
+
+    const readmeRow = getTreeRow('README.md');
+    const readmeStats = within(readmeRow).getByLabelText('README.md: 3 additions and 1 deletions');
+    expect(readmeStats).toHaveTextContent('+3-1');
+    expect(readmeStats).toBe(readmeRow.lastElementChild);
+
+    const appRow = getTreeRow('src/client/App.tsx');
+    const appStats = within(appRow).getByLabelText(
+      'src/client/App.tsx: 2 additions and 4 deletions',
+    );
+    expect(appStats).toHaveTextContent('+2-4');
+    expect(appStats).toBe(appRow.lastElementChild);
+  });
+
   it('strikes through directories when all descendant files are reviewed', () => {
     const files = [
       createFile('src/cli/index.ts'),

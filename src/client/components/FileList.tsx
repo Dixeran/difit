@@ -427,7 +427,7 @@ export const FileList = memo(function FileList({
           />
           {getFileIcon(node.file.status)}
           <span
-            className={`text-sm text-github-text-primary flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
+            className={`min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-github-text-primary ${
               isReviewed ? 'line-through text-github-text-muted' : ''
             }`}
             title={node.file.path}
@@ -435,11 +435,19 @@ export const FileList = memo(function FileList({
             {node.name}
           </span>
           {commentCount > 0 && (
-            <span className="text-github-warning text-sm font-medium ml-auto flex items-center gap-1">
+            <span className="text-github-warning text-sm font-medium flex shrink-0 items-center gap-1">
               <MessageSquare size={14} />
               {commentCount}
             </span>
           )}
+          <span
+            className="inline-flex shrink-0 gap-1 whitespace-nowrap text-xs font-medium tabular-nums"
+            title={`${file.additions} additions and ${file.deletions} deletions`}
+            aria-label={`${file.path}: ${file.additions} additions and ${file.deletions} deletions`}
+          >
+            <span className="text-github-accent">+{file.additions}</span>
+            <span className="text-github-danger">-{file.deletions}</span>
+          </span>
         </div>
       );
     }
