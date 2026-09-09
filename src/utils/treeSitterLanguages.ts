@@ -6,6 +6,7 @@ export const TREE_SITTER_LANGUAGE_IDS = [
   'clojure',
   'cpp',
   'css',
+  'cuda',
   'dart',
   'dockerfile',
   'elixir',

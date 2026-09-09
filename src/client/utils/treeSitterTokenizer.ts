@@ -12,6 +12,11 @@ const QUERY_PLAN: Partial<Record<TreeSitterLanguageId, Array<[TreeSitterLanguage
     ['c', 'highlights'],
     ['cpp', 'highlights'],
   ],
+  cuda: [
+    ['c', 'highlights'],
+    ['cpp', 'highlights'],
+    ['cuda', 'highlights'],
+  ],
   scss: [
     ['css', 'highlights'],
     ['scss', 'highlights'],

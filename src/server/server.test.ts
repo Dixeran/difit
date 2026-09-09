@@ -1535,6 +1535,7 @@ describe('Server Integration Tests', () => {
     it('serves the Tree-sitter runtime and language parser as WASM', async () => {
       const runtime = await fetch(`http://localhost:${port}/api/tree-sitter/runtime.wasm`);
       const parser = await fetch(`http://localhost:${port}/api/tree-sitter/typescript/parser.wasm`);
+      const cudaParser = await fetch(`http://localhost:${port}/api/tree-sitter/cuda/parser.wasm`);
 
       expect(runtime.ok).toBe(true);
       expect(runtime.headers.get('Content-Type')).toContain('application/wasm');
@@ -1542,12 +1543,16 @@ describe('Server Integration Tests', () => {
       expect(parser.ok).toBe(true);
       expect(parser.headers.get('Content-Type')).toContain('application/wasm');
       expect((await parser.arrayBuffer()).byteLength).toBeGreaterThan(0);
+      expect(cudaParser.ok).toBe(true);
+      expect(cudaParser.headers.get('Content-Type')).toContain('application/wasm');
+      expect((await cudaParser.arrayBuffer()).byteLength).toBeGreaterThan(0);
     });
 
     it('serves highlight queries and rejects unknown assets', async () => {
       const query = await fetch(
         `http://localhost:${port}/api/tree-sitter/typescript/highlights.scm`,
       );
+      const cudaQuery = await fetch(`http://localhost:${port}/api/tree-sitter/cuda/highlights.scm`);
       const unknownLanguage = await fetch(
         `http://localhost:${port}/api/tree-sitter/not-a-language/parser.wasm`,
       );
@@ -1558,6 +1563,8 @@ describe('Server Integration Tests', () => {
       expect(query.ok).toBe(true);
       expect(query.headers.get('Content-Type')).toContain('text/plain');
       expect(await query.text()).toContain('type_identifier');
+      expect(cudaQuery.ok).toBe(true);
+      expect(await cudaQuery.text()).toContain('__global__');
       expect(unknownLanguage.status).toBe(404);
       expect(unknownQuery.status).toBe(404);
     });

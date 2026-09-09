@@ -11,6 +11,11 @@ describe('getTreeSitterLanguageFromFilename', () => {
     expect(getTreeSitterLanguageFromFilename('src/App.svelte')).toBe('svelte');
     expect(getTreeSitterLanguageFromFilename('pages/index.astro')).toBe('astro');
     expect(getTreeSitterLanguageFromFilename('native/main.cpp')).toBe('cpp');
+    expect(getTreeSitterLanguageFromFilename('native/main.cc')).toBe('cpp');
+    expect(getTreeSitterLanguageFromFilename('native/kernel.cu')).toBe('cuda');
+    expect(getTreeSitterLanguageFromFilename('native/kernel.cuh')).toBe('cuda');
+    expect(getTreeSitterLanguageFromFilename('native/include/types.h')).toBe('cpp');
+    expect(getTreeSitterLanguageFromFilename('native/include/types.hpp')).toBe('cpp');
   });
 
   it('is case-insensitive and supports extensionless well-known files', () => {
