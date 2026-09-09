@@ -12,7 +12,6 @@ import { DiffMode } from '../types/watch.js';
 import {
   shouldReadStdin,
   findUntrackedFiles,
-  markFilesIntentToAdd,
   promptUser,
   parseCommentOptions,
   validateDiffArguments,
@@ -272,12 +271,13 @@ program
         process.exit(1);
       }
 
+      let includeUntracked = Boolean(options.includeUntracked);
       if (selection.targetCommitish === 'working' || selection.targetCommitish === '.') {
         const git = simpleGit(repoPath);
         if (isBackgroundChild && !options.includeUntracked) {
           // Skip interactive prompts in detached background mode.
         } else {
-          await handleUntrackedFiles(git, options.includeUntracked);
+          includeUntracked = await handleUntrackedFiles(git, options.includeUntracked);
         }
       }
 
@@ -297,6 +297,7 @@ program
         contextLines: options.context,
         diffMode: determineDiffMode(selection, compareWith),
         repoPath,
+        includeUntracked,
         ...(commentImports.length > 0 ? { commentImports } : {}),
       });
 
@@ -356,22 +357,21 @@ program
 
 void program.parseAsync();
 
-async function handleUntrackedFiles(git: SimpleGit, addAutomatically?: boolean): Promise<void> {
+async function handleUntrackedFiles(git: SimpleGit, addAutomatically?: boolean): Promise<boolean> {
   const files = await findUntrackedFiles(git);
   if (files.length === 0) {
-    return;
+    return Boolean(addAutomatically);
   }
 
   const shouldAdd = addAutomatically || (await promptUserToIncludeUntracked(files));
 
   if (shouldAdd) {
-    await markFilesIntentToAdd(git, files);
-    console.log('✅ Files added with --intent-to-add');
-    const filesAsArgs = files.join(' ');
-    console.log(`   💡 To undo this, run \`git reset -- ${filesAsArgs}\``);
+    console.log('✅ Untracked files will be included without modifying the Git index');
   } else {
     console.log('i Untracked files will not be shown in diff');
   }
+
+  return Boolean(shouldAdd);
 }
 
 async function promptUserToIncludeUntracked(files: string[]): Promise<boolean> {

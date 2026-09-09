@@ -67,6 +67,7 @@ interface ServerOptions {
   diffMode?: DiffMode;
   repoPath?: string;
   contextLines?: number;
+  includeUntracked?: boolean;
 }
 
 const GENERATED_STATUS_CACHE_TTL_MS = 60_000;
@@ -185,6 +186,7 @@ export async function startServer(
       initialSelection,
       initialIgnoreWhitespace,
       options.contextLines,
+      options.includeUntracked,
     );
     setCachedDiffResponse(
       diffDataCache,
@@ -328,6 +330,7 @@ export async function startServer(
             requestedSelection,
             ignoreWhitespace,
             options.contextLines,
+            options.includeUntracked,
           );
         } catch (error) {
           console.error('Error fetching diff:', error);

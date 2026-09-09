@@ -460,6 +460,24 @@ describe('Server Integration Tests', () => {
         { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
         false,
         4,
+        undefined,
+      );
+    });
+
+    it('passes the untracked-file option to the initial diff load', async () => {
+      const result = await startServer({
+        selection: { targetCommitish: '.', baseCommitish: 'HEAD' },
+        preferredPort: 9026,
+        includeUntracked: true,
+      });
+      servers.push(result.server);
+
+      const parser = parserInstances.at(-1);
+      expect(parser?.parseDiff).toHaveBeenCalledWith(
+        { targetCommitish: '.', baseCommitish: 'HEAD' },
+        false,
+        undefined,
+        true,
       );
     });
   });
@@ -514,6 +532,7 @@ describe('Server Integration Tests', () => {
         { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
         true,
         undefined,
+        undefined,
       );
     });
 
@@ -545,6 +564,7 @@ describe('Server Integration Tests', () => {
         { targetCommitish: 'feature', baseCommitish: 'main' },
         true,
         2,
+        undefined,
       );
     });
 
@@ -576,6 +596,7 @@ describe('Server Integration Tests', () => {
           baseMode: 'merge-base',
         },
         false,
+        undefined,
         undefined,
       );
       expect(data.requestedBaseMode).toBe('merge-base');
@@ -613,6 +634,7 @@ describe('Server Integration Tests', () => {
         1,
         { targetCommitish: 'feature', baseCommitish: 'main' },
         false,
+        undefined,
         undefined,
       );
     });
@@ -655,6 +677,7 @@ describe('Server Integration Tests', () => {
       expect(parser?.parseDiff).toHaveBeenLastCalledWith(
         { targetCommitish: 'target-a', baseCommitish: 'base-a' },
         false,
+        undefined,
         undefined,
       );
     });

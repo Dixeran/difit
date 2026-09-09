@@ -1456,6 +1456,80 @@ index abc123..def456 100644
   });
 
   describe('parseDiff', () => {
+    it('includes untracked text and binary files without modifying the index', async () => {
+      const gitDiff = (parser as any).git.diff;
+      const gitRevparse = (parser as any).git.revparse;
+      const gitRaw = (parser as any).git.raw;
+      gitRevparse.mockResolvedValue('abcdef1234567890abcdef1234567890abcdef12');
+      gitDiff.mockResolvedValue('');
+      gitRaw.mockImplementation((args: string[]) => {
+        if (args[0] === 'ls-files') {
+          return Promise.resolve('new-file.ts\0assets/new-image.png\0');
+        }
+        return Promise.resolve('');
+      });
+      mockReadFileSync.mockImplementation((path: string) =>
+        path.endsWith('new-file.ts')
+          ? Buffer.from("const greeting = 'hello';\nconsole.log(greeting);\n")
+          : Buffer.from([0x89, 0x50, 0x4e, 0x47, 0]),
+      );
+
+      const response = await parser.parseDiff(
+        { targetCommitish: '.', baseCommitish: 'HEAD' },
+        false,
+        undefined,
+        true,
+      );
+
+      expect(gitRaw).toHaveBeenCalledWith(['ls-files', '--others', '--exclude-standard', '-z']);
+      expect((parser as any).git.add).toBeUndefined();
+      expect(response.files).toMatchObject([
+        {
+          path: 'new-file.ts',
+          status: 'added',
+          additions: 2,
+          deletions: 0,
+          chunks: [
+            {
+              header: '@@ -0,0 +1,2 @@',
+              oldStart: 0,
+              oldLines: 0,
+              newStart: 1,
+              newLines: 2,
+              lines: [
+                {
+                  type: 'add',
+                  content: "const greeting = 'hello';",
+                  newLineNumber: 1,
+                },
+                { type: 'add', content: 'console.log(greeting);', newLineNumber: 2 },
+              ],
+            },
+          ],
+        },
+        {
+          path: 'assets/new-image.png',
+          status: 'added',
+          additions: 0,
+          deletions: 0,
+          chunks: [],
+        },
+      ]);
+    });
+
+    it('does not query untracked files unless they are enabled for a working-tree diff', async () => {
+      const gitDiff = (parser as any).git.diff;
+      const gitRevparse = (parser as any).git.revparse;
+      const gitRaw = (parser as any).git.raw;
+      gitRevparse.mockResolvedValue('abcdef1234567890abcdef1234567890abcdef12');
+      gitDiff.mockResolvedValue('');
+      gitRaw.mockResolvedValue('');
+
+      await parser.parseDiff({ targetCommitish: '.', baseCommitish: 'HEAD' });
+
+      expect(gitRaw).not.toHaveBeenCalledWith(['ls-files', '--others', '--exclude-standard', '-z']);
+    });
+
     it('marks files with .gitattributes linguist-generated=true as generated', async () => {
       const file = 'apps/app/web/src/api/index.tsx';
       const gitDiff = (parser as any).git.diff;

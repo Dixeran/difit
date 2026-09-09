@@ -66,6 +66,7 @@ export class GitDiffParser {
     selection: DiffSelection,
     ignoreWhitespace = false,
     contextLines?: number,
+    includeUntracked = false,
   ): Promise<DiffResponse> {
     const { targetCommitish, baseCommitish } = selection;
     const requestedBaseMode =
@@ -138,10 +139,11 @@ export class GitDiffParser {
 
       // Single git invocation for better startup latency on large repositories.
       const diffRaw = useRootDiff ? await this.git.show(diffArgs) : await this.git.diff(diffArgs);
-      const files = await this.markGitattributesGeneratedFiles(
-        this.parseUnifiedDiff(diffRaw),
-        attributesRef,
-      );
+      const parsedFiles = this.parseUnifiedDiff(diffRaw);
+      if (includeUntracked && (targetCommitish === '.' || targetCommitish === 'working')) {
+        parsedFiles.push(...(await this.getUntrackedDiffFiles(targetCommitish)));
+      }
+      const files = await this.markGitattributesGeneratedFiles(parsedFiles, attributesRef);
 
       return {
         commit: resolvedCommit,
@@ -158,6 +160,66 @@ export class GitDiffParser {
         `Failed to parse diff for ${targetCommitish} vs ${baseCommitish}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
+  }
+
+  private async getUntrackedDiffFiles(targetCommitish: '.' | 'working'): Promise<DiffFile[]> {
+    const output = await this.git.raw(['ls-files', '--others', '--exclude-standard', '-z']);
+    const paths = output.split('\0').filter(Boolean);
+    const files: DiffFile[] = [];
+
+    for (const path of paths) {
+      try {
+        const buffer = await this.getBlobContent(path, targetCommitish);
+        if (buffer.includes(0)) {
+          files.push({
+            path,
+            status: 'added',
+            additions: 0,
+            deletions: 0,
+            chunks: [],
+            isGenerated: isGeneratedFile(path).isGenerated,
+          });
+          continue;
+        }
+
+        const content = buffer.toString('utf8').replace(/\r\n?/g, '\n');
+        const lines =
+          content === ''
+            ? []
+            : content.endsWith('\n')
+              ? content.slice(0, -1).split('\n')
+              : content.split('\n');
+        const lineCount = lines.length;
+        files.push({
+          path,
+          status: 'added',
+          additions: lineCount,
+          deletions: 0,
+          chunks:
+            lineCount === 0
+              ? []
+              : [
+                  {
+                    header: `@@ -0,0 +1,${lineCount} @@`,
+                    oldStart: 0,
+                    oldLines: 0,
+                    newStart: 1,
+                    newLines: lineCount,
+                    lines: lines.map((content, index) => ({
+                      type: 'add' as const,
+                      content,
+                      newLineNumber: index + 1,
+                    })),
+                  },
+                ],
+          isGenerated: isGeneratedFile(path).isGenerated,
+        });
+      } catch {
+        // The file may have disappeared between `git ls-files` and reading it.
+      }
+    }
+
+    return files;
   }
 
   private parseUnifiedDiff(diffText: string): DiffFile[] {

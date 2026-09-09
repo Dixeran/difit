@@ -13,7 +13,6 @@ vi.mock('./utils.js', async () => {
     ...actual,
     promptUser: vi.fn(),
     findUntrackedFiles: vi.fn(),
-    markFilesIntentToAdd: vi.fn(),
   };
 });
 vi.mock('./github.js', () => ({
@@ -23,13 +22,8 @@ vi.mock('./github.js', () => ({
 
 const { simpleGit } = await import('simple-git');
 const { startServer } = await import('../server/server.js');
-const {
-  promptUser,
-  findUntrackedFiles,
-  markFilesIntentToAdd,
-  parseCommentOptions,
-  shouldReadStdin,
-} = await import('./utils.js');
+const { promptUser, findUntrackedFiles, parseCommentOptions, shouldReadStdin } =
+  await import('./utils.js');
 const { getPrPatch, getPrCommentImports } = await import('./github.js');
 
 describe('CLI index.ts', () => {
@@ -37,7 +31,6 @@ describe('CLI index.ts', () => {
   let mockStartServer: any;
   let mockPromptUser: any;
   let mockFindUntrackedFiles: any;
-  let mockMarkFilesIntentToAdd: any;
   let mockGetPrPatch: any;
   let mockGetPrCommentImports: any;
   let actualParseCommentOptions: typeof parseCommentOptions;
@@ -65,7 +58,6 @@ describe('CLI index.ts', () => {
 
     mockPromptUser = vi.mocked(promptUser);
     mockFindUntrackedFiles = vi.mocked(findUntrackedFiles);
-    mockMarkFilesIntentToAdd = vi.mocked(markFilesIntentToAdd);
     mockGetPrPatch = vi.mocked(getPrPatch);
     mockGetPrCommentImports = vi.mocked(getPrCommentImports);
     mockGetPrCommentImports.mockResolvedValue([]);
@@ -535,7 +527,6 @@ describe('CLI index.ts', () => {
       const untrackedFiles = ['file1.js', 'file2.js'];
       mockFindUntrackedFiles.mockResolvedValue(untrackedFiles);
       mockPromptUser.mockResolvedValue(true);
-      mockMarkFilesIntentToAdd.mockResolvedValue(undefined);
 
       const program = new Command();
 
@@ -600,7 +591,6 @@ describe('CLI index.ts', () => {
     it('automatically includes untracked files with --include-untracked flag', async () => {
       const untrackedFiles = ['new-file.ts', 'another-file.ts'];
       mockFindUntrackedFiles.mockResolvedValue(untrackedFiles);
-      mockMarkFilesIntentToAdd.mockResolvedValue(undefined);
 
       const program = new Command();
 
@@ -615,10 +605,7 @@ describe('CLI index.ts', () => {
         .action(async (commitish: string, _compareWith: string | undefined, options: any) => {
           if (commitish === 'working' || commitish === '.') {
             const git = simpleGit();
-            const files = await findUntrackedFiles(git);
-            if (files.length > 0 && options.includeUntracked) {
-              await markFilesIntentToAdd(git, files);
-            }
+            await findUntrackedFiles(git);
           }
 
           await startServer({
@@ -626,19 +613,22 @@ describe('CLI index.ts', () => {
             preferredPort: options.port,
             host: options.host,
             openBrowser: options.open,
+            includeUntracked: Boolean(options.includeUntracked),
           });
         });
 
       await program.parseAsync(['.', '--include-untracked'], { from: 'user' });
 
       expect(mockFindUntrackedFiles).toHaveBeenCalledWith(mockGit);
-      expect(mockMarkFilesIntentToAdd).toHaveBeenCalledWith(mockGit, untrackedFiles);
+      expect(mockGit.add).not.toHaveBeenCalled();
+      expect(mockStartServer).toHaveBeenCalledWith(
+        expect.objectContaining({ includeUntracked: true }),
+      );
     });
 
     it('does not auto-include untracked files without --include-untracked flag', async () => {
       const untrackedFiles = ['new-file.ts'];
       mockFindUntrackedFiles.mockResolvedValue(untrackedFiles);
-      mockMarkFilesIntentToAdd.mockResolvedValue(undefined);
 
       const program = new Command();
 
@@ -653,11 +643,7 @@ describe('CLI index.ts', () => {
         .action(async (commitish: string, _compareWith: string | undefined, options: any) => {
           if (commitish === 'working' || commitish === '.') {
             const git = simpleGit();
-            const files = await findUntrackedFiles(git);
-            // Without --include-untracked, markFilesIntentToAdd should not be called automatically
-            if (files.length > 0 && options.includeUntracked) {
-              await markFilesIntentToAdd(git, files);
-            }
+            await findUntrackedFiles(git);
           }
 
           await startServer({
@@ -665,13 +651,17 @@ describe('CLI index.ts', () => {
             preferredPort: options.port,
             host: options.host,
             openBrowser: options.open,
+            includeUntracked: Boolean(options.includeUntracked),
           });
         });
 
       await program.parseAsync(['.'], { from: 'user' });
 
       expect(mockFindUntrackedFiles).toHaveBeenCalledWith(mockGit);
-      expect(mockMarkFilesIntentToAdd).not.toHaveBeenCalled();
+      expect(mockGit.add).not.toHaveBeenCalled();
+      expect(mockStartServer).toHaveBeenCalledWith(
+        expect.objectContaining({ includeUntracked: false }),
+      );
     });
   });
 
