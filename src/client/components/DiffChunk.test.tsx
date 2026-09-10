@@ -76,6 +76,48 @@ describe('DiffChunk range comments', () => {
     expect(rightPane?.firstElementChild).toHaveClass('diff-code-scroll-content');
   });
 
+  it('keeps line actions in a dedicated lane outside line numbers and code', () => {
+    const sharedProps = {
+      chunk: testChunk,
+      chunkIndex: 0,
+      threads: [],
+      onAddComment: asyncNoop,
+      onGenerateThreadPrompt: () => '',
+      onRemoveThread: noop,
+      onReplyToThread: asyncNoop,
+      onRemoveMessage: noop,
+      onUpdateMessage: noop,
+      onShowLineHistory: vi.fn(),
+      onOpenInEditor: vi.fn(),
+      filename: 'src/example.ts',
+    };
+
+    const unified = renderWithProviders(<DiffChunk {...sharedProps} mode="unified" />);
+    const unifiedRow = unified.container.querySelector('[data-diff-line-row="true"]')!;
+    fireEvent.mouseEnter(unifiedRow);
+
+    const unifiedActionCell = unifiedRow.children[1]!;
+    expect(unifiedActionCell).toHaveClass(
+      'w-[calc(var(--line-number-width)+var(--line-actions-width))]',
+    );
+    expect(unifiedActionCell.querySelector('span')).toHaveClass('w-[var(--line-number-width)]');
+    expect(unifiedActionCell.querySelector('[data-line-actions="true"]')).not.toBeNull();
+    expect(unifiedRow.children[2]!.querySelector('[data-line-actions="true"]')).toBeNull();
+    unified.unmount();
+
+    const split = renderWithProviders(<SideBySideDiffChunk {...sharedProps} />);
+    const splitRow = split.container.querySelector('[data-diff-line-row="true"]')!;
+    fireEvent.mouseMove(splitRow.children[0]!);
+
+    const splitActionCell = splitRow.children[0]!;
+    expect(splitActionCell).toHaveClass(
+      'w-[calc(var(--line-number-width)+var(--line-actions-width))]',
+    );
+    expect(splitActionCell.querySelector('span')).toHaveClass('w-[var(--line-number-width)]');
+    expect(splitActionCell.querySelector('[data-line-actions="true"]')).not.toBeNull();
+    expect(splitRow.children[1]!.querySelector('[data-line-actions="true"]')).toBeNull();
+  });
+
   it('opens a unified range comment with shift-click', async () => {
     const onAddComment = vi.fn().mockResolvedValue(undefined);
     const { container } = renderWithProviders(

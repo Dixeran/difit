@@ -83,8 +83,10 @@ export const DiffLineRow: React.FC<DiffLineRowProps> = React.memo(
         <td className="w-[var(--line-number-width)] min-w-[var(--line-number-width)] max-w-[var(--line-number-width)] px-2 text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative">
           {line.oldLineNumber || ''}
         </td>
-        <td className="w-[var(--line-number-width)] min-w-[var(--line-number-width)] max-w-[var(--line-number-width)] px-2 text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible">
-          <span>{line.newLineNumber || ''}</span>
+        <td className="w-[calc(var(--line-number-width)+var(--line-actions-width))] min-w-[calc(var(--line-number-width)+var(--line-actions-width))] max-w-[calc(var(--line-number-width)+var(--line-actions-width))] text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible">
+          <span className="absolute left-0 top-0 w-[var(--line-number-width)] px-2 text-right">
+            {line.newLineNumber || ''}
+          </span>
           {showLineActions && (
             <LineActions>
               {onShowHistory && <HistoryButton onClick={onShowHistory} />}

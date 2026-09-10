@@ -349,6 +349,7 @@ export const DiffViewer = memo(function DiffViewer({
   });
 
   const lineNumberWidth = '4em';
+  const lineActionsWidth = '4rem';
   const ViewerComponent = viewer.Component;
   const viewerProps: DiffViewerBodyProps = {
     file,
@@ -384,7 +385,12 @@ export const DiffViewer = memo(function DiffViewer({
     <div
       ref={containerRef}
       className="bg-github-bg-primary"
-      style={{ '--line-number-width': lineNumberWidth } as React.CSSProperties}
+      style={
+        {
+          '--line-number-width': lineNumberWidth,
+          '--line-actions-width': lineActionsWidth,
+        } as React.CSSProperties
+      }
       onScrollCapture={horizontalScrollHandlers.onScrollCapture}
       onWheel={horizontalScrollHandlers.onWheel}
     >
