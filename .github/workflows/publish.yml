@@ -14,12 +14,8 @@ permissions:
   contents: write
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
   release:
     name: Build Linux x64 package and create release
-    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -41,7 +37,7 @@ jobs:
           version: 11.6.0
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Calculate next patch version
         id: version
