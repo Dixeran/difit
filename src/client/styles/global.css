@@ -103,6 +103,21 @@ tr.keyboard-cursor td {
   position: relative;
 }
 
+/* Each rendered code line owns a lightweight horizontal viewport. The
+   file-level scroll coordinator keeps every viewport, including both split
+   sides, at the same offset. Hide per-line scrollbars to avoid one scrollbar
+   per diff row; trackpads and Shift + wheel remain available. */
+.diff-code-scroll-pane {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.diff-code-scroll-pane::-webkit-scrollbar {
+  display: none;
+}
+
 /* Keyboard navigation highlight overlay for unified mode table cells */
 tr.keyboard-cursor td::before {
   content: "";

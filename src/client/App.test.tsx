@@ -12,6 +12,7 @@ import App from './App';
 import { useDiffComments } from './hooks/useDiffComments';
 import { useViewedFiles } from './hooks/useViewedFiles';
 import { useViewport } from './hooks/useViewport';
+import { APPEARANCE_STORAGE_KEY } from './utils/appearanceTheme';
 
 // Mock the useViewport hook
 vi.mock('./hooks/useViewport', () => ({
@@ -195,6 +196,27 @@ const mockDiffResponse: DiffResponse = {
   ignoreWhitespace: false,
   isEmpty: false,
 };
+
+describe('App Component - code line wrapping', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch(mockDiffResponse);
+  });
+
+  it('exposes a persistent toolbar toggle', async () => {
+    renderApp();
+
+    const toggle = await screen.findByRole('checkbox', { name: 'Wrap Lines' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? '{}')).toMatchObject({
+      wrapCodeLines: false,
+    });
+  });
+});
 
 describe('App Component - Clear Comments Functionality', () => {
   beforeEach(() => {

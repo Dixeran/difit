@@ -10,6 +10,7 @@ describe('ImageDiffViewer', () => {
   const baseProps: Omit<DiffViewerBodyProps, 'file'> = {
     threads: [],
     diffMode: 'unified',
+    wrapCodeLines: true,
     mergedChunks: [],
     isExpandLoading: false,
     expandHiddenLines: vi.fn().mockResolvedValue(undefined),

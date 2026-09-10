@@ -21,6 +21,7 @@ const baseSettings = {
   fontSize: 14,
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
+  wrapCodeLines: true,
   theme: 'dark' as const,
   syntaxTheme: 'vsDark',
   editor: {
@@ -33,6 +34,28 @@ const baseSettings = {
 };
 
 describe('SettingsModal', () => {
+  it('allows automatic code wrapping to be disabled', () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <SettingsModal
+        isOpen={true}
+        onClose={vi.fn()}
+        settings={baseSettings}
+        onSettingsChange={onSettingsChange}
+      />,
+      { wrapper },
+    );
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Wrap Code Lines' });
+    expect(checkbox).toBeChecked();
+    fireEvent.click(checkbox);
+
+    expect(onSettingsChange).toHaveBeenLastCalledWith({
+      ...baseSettings,
+      wrapCodeLines: false,
+    });
+  });
+
   it('shows appearance settings by default and moves editor selection into the system section', () => {
     render(
       <SettingsModal

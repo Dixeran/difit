@@ -41,6 +41,7 @@ interface SideBySideDiffChunkProps {
   onRemoveMessage: (threadId: string, messageId: string) => void;
   onUpdateMessage: (threadId: string, messageId: string, newBody: string) => void;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
+  wrapCodeLines?: boolean;
   cursor?: CursorPosition | null;
   fileIndex?: number;
   onLineClick?: (
@@ -152,6 +153,7 @@ export function SideBySideDiffChunk({
   onRemoveMessage,
   onUpdateMessage,
   syntaxTheme,
+  wrapCodeLines = true,
   cursor = null,
   fileIndex = 0,
   onLineClick,
@@ -695,16 +697,29 @@ export function SideBySideDiffChunk({
                     className={`w-1/2 p-0 align-top border-r border-github-border relative ${getSideBySideLineClass(sideLine.oldLine, isExpandedLine(sideLine.oldLine))} ${getSelectedLineStyle('old', sideLine)} ${highlightOldCell ? cellHighlightClass : ''}`}
                   >
                     {sideLine.oldLine && (
-                      <div className="flex items-center relative min-h-[20px] px-3">
+                      <div
+                        data-diff-scroll-pane="left"
+                        className={`relative min-h-[20px] min-w-0 ${
+                          wrapCodeLines ? 'flex items-center' : 'diff-code-scroll-pane'
+                        }`}
+                      >
                         {sideLine.wordLevelDiff ? (
                           <WordLevelDiffHighlighter
                             segments={sideLine.wordLevelDiff.oldSegments}
-                            className="flex-1 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text"
+                            className={`block px-3 text-github-text-primary select-text ${
+                              wrapCodeLines
+                                ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
+                                : 'min-w-max whitespace-pre'
+                            }`}
                           />
                         ) : (
                           <EnhancedPrismSyntaxHighlighter
                             code={sideLine.oldLine.content}
-                            className="flex-1 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit"
+                            className={`block px-3 text-github-text-primary select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit ${
+                              wrapCodeLines
+                                ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
+                                : 'min-w-max whitespace-pre'
+                            }`}
                             syntaxTheme={syntaxTheme}
                             filename={filename}
                             precomputedTokens={getProcomputedTokens(
@@ -754,16 +769,29 @@ export function SideBySideDiffChunk({
                     className={`w-1/2 p-0 align-top relative ${getSideBySideLineClass(sideLine.newLine, isExpandedLine(sideLine.newLine))} ${getSelectedLineStyle('new', sideLine)} ${highlightNewCell ? cellHighlightClass : ''}`}
                   >
                     {sideLine.newLine && (
-                      <div className="flex items-center relative min-h-[20px] px-3">
+                      <div
+                        data-diff-scroll-pane="right"
+                        className={`relative min-h-[20px] min-w-0 ${
+                          wrapCodeLines ? 'flex items-center' : 'diff-code-scroll-pane'
+                        }`}
+                      >
                         {sideLine.wordLevelDiff ? (
                           <WordLevelDiffHighlighter
                             segments={sideLine.wordLevelDiff.newSegments}
-                            className="flex-1 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text"
+                            className={`block px-3 text-github-text-primary select-text ${
+                              wrapCodeLines
+                                ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
+                                : 'min-w-max whitespace-pre'
+                            }`}
                           />
                         ) : (
                           <EnhancedPrismSyntaxHighlighter
                             code={sideLine.newLine.content}
-                            className="flex-1 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit"
+                            className={`block px-3 text-github-text-primary select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit ${
+                              wrapCodeLines
+                                ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
+                                : 'min-w-max whitespace-pre'
+                            }`}
                             syntaxTheme={syntaxTheme}
                             filename={filename}
                             precomputedTokens={getProcomputedTokens(

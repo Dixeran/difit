@@ -21,6 +21,7 @@ interface DiffLineRowProps {
   onCommentButtonMouseDown: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onOpenInEditor?: () => void;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
+  wrapCodeLines?: boolean;
   onClick?: (e: React.MouseEvent<HTMLTableRowElement>) => void;
   filename?: string;
   diffSegments?: DiffSegment[];
@@ -55,6 +56,7 @@ export const DiffLineRow: React.FC<DiffLineRowProps> = React.memo(
     onCommentButtonMouseDown,
     onOpenInEditor,
     syntaxTheme,
+    wrapCodeLines = true,
     onClick,
     filename,
     diffSegments,
@@ -90,6 +92,7 @@ export const DiffLineRow: React.FC<DiffLineRowProps> = React.memo(
           <DiffCodeLine
             line={line}
             syntaxTheme={syntaxTheme}
+            wrapCodeLines={wrapCodeLines}
             filename={filename}
             diffSegments={diffSegments}
           />

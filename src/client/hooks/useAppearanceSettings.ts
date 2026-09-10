@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: AppearanceSettings = {
   fontSize: 14,
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
+  wrapCodeLines: true,
   theme: 'dark',
   syntaxTheme: 'vscodeModernDark',
   editor: {
@@ -86,6 +87,7 @@ const normalizeStoredSettings = (raw: unknown): AppearanceSettings | null => {
   return {
     ...DEFAULT_SETTINGS,
     ...parsed,
+    wrapCodeLines: parsed.wrapCodeLines !== false,
     editor: normalizeEditorSettings(parsed.editor),
     autoViewedPatterns: normalizeAutoViewedPatterns(parsed.autoViewedPatterns),
   };

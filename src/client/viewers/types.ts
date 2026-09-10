@@ -11,6 +11,7 @@ export type DiffViewerBodyProps = {
   showAuthorBadges?: boolean;
   diffMode: DiffViewMode;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
+  wrapCodeLines: boolean;
   baseCommitish?: string;
   targetCommitish?: string;
   cursor?: CursorPosition | null;

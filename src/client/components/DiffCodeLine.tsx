@@ -12,6 +12,7 @@ interface DiffCodeLineProps {
   filename?: string;
   diffSegments?: DiffSegment[];
   showPrefixBorder?: boolean;
+  wrapCodeLines?: boolean;
 }
 
 const getLinePrefix = (type: DiffLine['type']) => {
@@ -42,6 +43,7 @@ export function DiffCodeLine({
   filename,
   diffSegments,
   showPrefixBorder = true,
+  wrapCodeLines = true,
 }: DiffCodeLineProps) {
   const { getOldTokens, getNewTokens } = useFileLevelTokensLookup();
   const getPrecomputedTokens = () => {
@@ -58,8 +60,13 @@ export function DiffCodeLine({
     return lineTokens ? [lineTokens] : null;
   };
 
+  const codeClassName = wrapCodeLines
+    ? 'block min-w-0 px-3 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text'
+    : 'block min-w-max px-3 text-github-text-primary whitespace-pre select-text';
+  const prismClassName = `${codeClassName} [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit`;
+
   return (
-    <div className="flex items-center relative min-h-[16px]">
+    <div className="relative flex min-h-[16px] min-w-0 items-center">
       <span
         className={`w-5 text-center flex-shrink-0 ${showPrefixBorder ? 'border-r border-github-border' : ''} ${getPrefixClass(
           line.type,
@@ -67,20 +74,22 @@ export function DiffCodeLine({
       >
         {getLinePrefix(line.type)}
       </span>
-      {diffSegments ? (
-        <WordLevelDiffHighlighter
-          segments={diffSegments}
-          className="flex-1 px-3 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text"
-        />
-      ) : (
-        <EnhancedPrismSyntaxHighlighter
-          code={line.content}
-          className="flex-1 px-3 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit"
-          syntaxTheme={syntaxTheme}
-          filename={filename}
-          precomputedTokens={getPrecomputedTokens()}
-        />
-      )}
+      <div
+        data-diff-scroll-pane="unified"
+        className={`min-w-0 flex-1 ${wrapCodeLines ? '' : 'diff-code-scroll-pane'}`}
+      >
+        {diffSegments ? (
+          <WordLevelDiffHighlighter segments={diffSegments} className={codeClassName} />
+        ) : (
+          <EnhancedPrismSyntaxHighlighter
+            code={line.content}
+            className={prismClassName}
+            syntaxTheme={syntaxTheme}
+            filename={filename}
+            precomputedTokens={getPrecomputedTokens()}
+          />
+        )}
+      </div>
     </div>
   );
 }

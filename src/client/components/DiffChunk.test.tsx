@@ -42,6 +42,37 @@ const renderWithProviders = (ui: ReactNode) =>
   render(<WordHighlightProvider>{ui}</WordHighlightProvider>);
 
 describe('DiffChunk range comments', () => {
+  it('renders independently scrollable no-wrap panes for unified and split views', () => {
+    const sharedProps = {
+      chunk: testChunk,
+      chunkIndex: 0,
+      threads: [],
+      wrapCodeLines: false,
+      onAddComment: asyncNoop,
+      onGenerateThreadPrompt: () => '',
+      onRemoveThread: noop,
+      onReplyToThread: asyncNoop,
+      onRemoveMessage: noop,
+      onUpdateMessage: noop,
+      filename: 'src/example.ts',
+    };
+    const unified = renderWithProviders(<DiffChunk {...sharedProps} mode="unified" />);
+
+    const unifiedPanes = unified.container.querySelectorAll('[data-diff-scroll-pane="unified"]');
+    expect(unifiedPanes).toHaveLength(testChunk.lines.length);
+    expect(unifiedPanes[0]).toHaveClass('diff-code-scroll-pane');
+    expect(unifiedPanes[0]?.firstElementChild).toHaveClass('whitespace-pre');
+    unified.unmount();
+
+    const split = renderWithProviders(<SideBySideDiffChunk {...sharedProps} />);
+    const leftPane = split.container.querySelector('[data-diff-scroll-pane="left"]');
+    const rightPane = split.container.querySelector('[data-diff-scroll-pane="right"]');
+    expect(leftPane).toHaveClass('diff-code-scroll-pane');
+    expect(rightPane).toHaveClass('diff-code-scroll-pane');
+    expect(leftPane?.firstElementChild).toHaveClass('whitespace-pre');
+    expect(rightPane?.firstElementChild).toHaveClass('whitespace-pre');
+  });
+
   it('opens a unified range comment with shift-click', async () => {
     const onAddComment = vi.fn().mockResolvedValue(undefined);
     const { container } = renderWithProviders(

@@ -55,6 +55,20 @@ describe('useAppearanceSettings', () => {
     localStorage.clear();
   });
 
+  it('defaults legacy settings to wrapped code and preserves an explicit disabled value', () => {
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ theme: 'dark' }));
+    const legacy = renderHook(() => useAppearanceSettings());
+    expect(legacy.result.current.settings.wrapCodeLines).toBe(true);
+    legacy.unmount();
+
+    localStorage.setItem(
+      APPEARANCE_STORAGE_KEY,
+      JSON.stringify({ theme: 'dark', wrapCodeLines: false }),
+    );
+    const unwrapped = renderHook(() => useAppearanceSettings());
+    expect(unwrapped.result.current.settings.wrapCodeLines).toBe(false);
+  });
+
   describe('theme', () => {
     beforeEach(() => {
       document.documentElement.removeAttribute('data-color-vision');

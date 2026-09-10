@@ -11,6 +11,7 @@ import { FileLevelTokensProvider } from '../contexts/FileLevelTokensContext';
 import { type CursorPosition } from '../hooks/keyboardNavigation';
 import { type MergedChunk } from '../hooks/useExpandedLines';
 import { useFileLevelTokens } from '../hooks/useFileLevelTokens';
+import { useSynchronizedHorizontalScroll } from '../hooks/useSynchronizedHorizontalScroll';
 import { getViewerForFile } from '../viewers/registry';
 import type { DiffViewerBodyProps } from '../viewers/types';
 
@@ -42,6 +43,7 @@ interface DiffViewerProps {
   onUpdateMessage: (threadId: string, messageId: string, newBody: string) => void;
   onOpenInEditor?: (filePath: string, lineNumber: number) => void;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
+  wrapCodeLines?: boolean;
   baseCommitish?: string;
   targetCommitish?: string;
   cursor?: CursorPosition | null;
@@ -193,6 +195,7 @@ export const DiffViewer = memo(function DiffViewer({
   onUpdateMessage,
   onOpenInEditor,
   syntaxTheme,
+  wrapCodeLines = true,
   baseCommitish,
   targetCommitish,
   cursor = null,
@@ -211,6 +214,12 @@ export const DiffViewer = memo(function DiffViewer({
   const isCollapsed = collapsedFiles.has(file.path);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const horizontalScrollHandlers = useSynchronizedHorizontalScroll({
+    containerRef,
+    enabled: !wrapCodeLines,
+    resetKey: file.path,
+    contentKey: mergedChunks,
+  });
 
   const viewer = getViewerForFile(file);
   const hasBlobContent = baseCommitish !== 'stdin' && targetCommitish !== 'stdin';
@@ -338,6 +347,7 @@ export const DiffViewer = memo(function DiffViewer({
     showAuthorBadges,
     diffMode,
     syntaxTheme,
+    wrapCodeLines,
     baseCommitish,
     targetCommitish,
     cursor,
@@ -363,6 +373,8 @@ export const DiffViewer = memo(function DiffViewer({
       ref={containerRef}
       className="bg-github-bg-primary"
       style={{ '--line-number-width': lineNumberWidth } as React.CSSProperties}
+      onScrollCapture={horizontalScrollHandlers.onScrollCapture}
+      onWheel={horizontalScrollHandlers.onWheel}
     >
       <DiffViewerHeader
         file={file}

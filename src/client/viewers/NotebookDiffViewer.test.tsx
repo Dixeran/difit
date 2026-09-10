@@ -65,6 +65,7 @@ const createProps = (overrides: Partial<DiffViewerBodyProps> = {}): DiffViewerBo
   file: createFile(),
   threads: [],
   diffMode: 'unified',
+  wrapCodeLines: true,
   mergedChunks,
   isExpandLoading: false,
   expandHiddenLines: vi.fn().mockResolvedValue(undefined),

@@ -27,6 +27,7 @@ interface EditorSettings {
 interface AppearanceSettings {
   fontSize: number;
   fontFamily: string;
+  wrapCodeLines: boolean;
   theme: 'light' | 'dark' | 'auto';
   syntaxTheme: string;
   editor: EditorSettings;
@@ -47,6 +48,7 @@ const DEFAULT_SETTINGS: AppearanceSettings = {
   fontSize: 14,
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
+  wrapCodeLines: true,
   theme: 'dark',
   syntaxTheme: 'vscodeModernDark',
   editor: {
@@ -157,6 +159,7 @@ export function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: S
         ...settings,
         fontSize: DEFAULT_SETTINGS.fontSize,
         fontFamily: DEFAULT_SETTINGS.fontFamily,
+        wrapCodeLines: DEFAULT_SETTINGS.wrapCodeLines,
         theme: DEFAULT_SETTINGS.theme,
         syntaxTheme: DEFAULT_SETTINGS.syntaxTheme,
         colorVision: DEFAULT_SETTINGS.colorVision,
@@ -260,6 +263,33 @@ export function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: S
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <label
+                      htmlFor="wrap-code-lines"
+                      className="block text-sm font-medium text-github-text-primary"
+                    >
+                      Wrap Code Lines
+                    </label>
+                    <p className="mt-1 text-xs text-github-text-secondary">
+                      Disable wrapping to scroll code horizontally. In split view, both sides stay
+                      synchronized; hold Shift while scrolling to move horizontally.
+                    </p>
+                  </div>
+                  <input
+                    id="wrap-code-lines"
+                    type="checkbox"
+                    checked={settings.wrapCodeLines}
+                    onChange={(event) =>
+                      onSettingsChange({
+                        ...settings,
+                        wrapCodeLines: event.target.checked,
+                      })
+                    }
+                    className="mt-1 h-4 w-4 shrink-0 accent-github-accent"
+                  />
                 </div>
 
                 <div>

@@ -41,6 +41,7 @@ interface DiffChunkProps {
   onUpdateMessage: (threadId: string, messageId: string, newBody: string) => void;
   mode?: DiffViewMode;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
+  wrapCodeLines?: boolean;
   cursor?: CursorPosition | null;
   fileIndex?: number;
   onLineClick?: (
@@ -72,6 +73,7 @@ export const DiffChunk = memo(function DiffChunk({
   onUpdateMessage,
   mode = DEFAULT_DIFF_VIEW_MODE,
   syntaxTheme,
+  wrapCodeLines = true,
   cursor = null,
   fileIndex = 0,
   onLineClick,
@@ -401,6 +403,7 @@ export const DiffChunk = memo(function DiffChunk({
         onUpdateMessage={onUpdateMessage}
         onOpenInEditor={onOpenInEditor}
         syntaxTheme={syntaxTheme}
+        wrapCodeLines={wrapCodeLines}
         cursor={cursor}
         fileIndex={fileIndex}
         onLineClick={onLineClick}
@@ -489,6 +492,7 @@ export const DiffChunk = memo(function DiffChunk({
                       : undefined
                   }
                   syntaxTheme={syntaxTheme}
+                  wrapCodeLines={wrapCodeLines}
                   filename={filename}
                   diffSegments={wordLevelDiffMap.get(index)}
                   onClick={(e) => {

@@ -1302,6 +1302,16 @@ function App() {
                 label="Ignore Whitespace"
                 title={ignoreWhitespace ? 'Show whitespace changes' : 'Ignore whitespace changes'}
               />
+              <Checkbox
+                checked={settings.wrapCodeLines}
+                onChange={(wrapCodeLines) => updateSettings({ ...settings, wrapCodeLines })}
+                label="Wrap Lines"
+                title={
+                  settings.wrapCodeLines
+                    ? 'Disable automatic code line wrapping'
+                    : 'Enable automatic code line wrapping'
+                }
+              />
               {/* File Watch Reload Button */}
               <ReloadButton
                 shouldReload={shouldReload}
@@ -1545,6 +1555,7 @@ function App() {
                       onUpdateMessage={updateMessage}
                       onOpenInEditor={canOpenInEditor ? handleOpenInEditor : undefined}
                       syntaxTheme={settings.syntaxTheme}
+                      wrapCodeLines={settings.wrapCodeLines}
                       baseCommitish={diffData.baseCommitish}
                       targetCommitish={diffData.targetCommitish}
                       cursor={cursor?.fileIndex === fileIndex ? cursor : null}

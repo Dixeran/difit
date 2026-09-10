@@ -11,6 +11,7 @@ export function TextDiffViewer({
   showAuthorBadges,
   diffMode,
   syntaxTheme,
+  wrapCodeLines,
   cursor,
   fileIndex,
   mergedChunks,
@@ -112,6 +113,7 @@ export function TextDiffViewer({
                 onOpenInEditor={onOpenInEditor}
                 mode={diffMode}
                 syntaxTheme={syntaxTheme}
+                wrapCodeLines={wrapCodeLines}
                 cursor={cursor && cursor.chunkIndex === mergedIndex ? cursor : null}
                 fileIndex={fileIndex}
                 onLineClick={onLineClick}
