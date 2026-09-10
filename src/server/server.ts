@@ -377,6 +377,10 @@ export async function startServer(
       repositoryId,
       commentImports: shouldIncludeCommentImports ? initialCommentImports : undefined,
       commentImportId: shouldIncludeCommentImports ? commentImportId : undefined,
+      capabilities: {
+        commitLookup: !options.stdinDiff,
+        history: !options.stdinDiff,
+      },
     });
   });
 
@@ -422,7 +426,7 @@ export async function startServer(
   });
 
   // Get available revisions for revision selector
-  app.get('/api/revisions', async (_req, res) => {
+  app.get('/api/revisions', async (req, res) => {
     if (options.stdinDiff) {
       res.status(400).json({ error: 'Revision selection not available for stdin diff' });
       return;
@@ -431,8 +435,10 @@ export async function startServer(
     try {
       const { branches, commits, originDefaultBranch, resolvedBase, resolvedTarget } =
         await parser.getRevisionOptions(
-          currentSelection.baseCommitish,
-          currentSelection.targetCommitish,
+          typeof req.query.base === 'string' ? req.query.base : currentSelection.baseCommitish,
+          typeof req.query.target === 'string'
+            ? req.query.target
+            : currentSelection.targetCommitish,
         );
 
       const response: RevisionsResponse = {
@@ -452,6 +458,104 @@ export async function startServer(
     } catch (error) {
       console.error('Error fetching revisions:', error);
       res.status(500).json({ error: 'Failed to fetch revisions' });
+    }
+  });
+
+  app.get('/api/commits/:hash', async (req, res) => {
+    if (options.stdinDiff) {
+      res.status(400).json({ error: 'Commit lookup is not available for stdin diff' });
+      return;
+    }
+
+    const hash = String(req.params.hash ?? '').trim();
+    if (!/^[0-9a-f]{4,40}$/i.test(hash)) {
+      res.status(400).json({ error: 'Commit hash must be a 4 to 40 character hexadecimal SHA' });
+      return;
+    }
+
+    try {
+      res.json(await parser.getCommitDetails(hash));
+    } catch (error) {
+      res.status(404).json({
+        error: error instanceof Error ? error.message : 'Commit not found',
+      });
+    }
+  });
+
+  const parseHistoryPagination = (
+    offsetValue: unknown,
+    limitValue: unknown,
+    defaultLimit: number,
+  ) => {
+    const parsedOffset = Number.parseInt(String(offsetValue ?? '0'), 10);
+    const parsedLimit = Number.parseInt(String(limitValue ?? defaultLimit), 10);
+    return {
+      offset: Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0,
+      limit: Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : defaultLimit,
+    };
+  };
+
+  app.get('/api/file-history', async (req, res) => {
+    if (options.stdinDiff) {
+      res.status(400).json({ error: 'File history is not available for stdin diff' });
+      return;
+    }
+
+    const pathResult = parseRepositoryRelativePath(req.query.path);
+    if (!pathResult.ok) {
+      res.status(400).json({ error: pathResult.error });
+      return;
+    }
+    const ref = typeof req.query.ref === 'string' ? req.query.ref.trim() : '';
+    if (!ref) {
+      res.status(400).json({ error: 'A commit ref is required' });
+      return;
+    }
+    const { offset, limit } = parseHistoryPagination(req.query.offset, req.query.limit, 50);
+
+    try {
+      res.json(await parser.getFileHistory(pathResult.path, ref, offset, limit));
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to load file history',
+      });
+    }
+  });
+
+  app.get('/api/line-history', async (req, res) => {
+    if (options.stdinDiff) {
+      res.status(400).json({ error: 'Line history is not available for stdin diff' });
+      return;
+    }
+
+    const pathResult = parseRepositoryRelativePath(req.query.path);
+    if (!pathResult.ok) {
+      res.status(400).json({ error: pathResult.error });
+      return;
+    }
+    const ref = typeof req.query.ref === 'string' ? req.query.ref.trim() : '';
+    const startLine = Number.parseInt(String(req.query.startLine ?? ''), 10);
+    const endLine = Number.parseInt(String(req.query.endLine ?? startLine), 10);
+    if (
+      !ref ||
+      !Number.isInteger(startLine) ||
+      !Number.isInteger(endLine) ||
+      startLine < 1 ||
+      endLine < startLine
+    ) {
+      res.status(400).json({ error: 'A commit ref and valid positive line range are required' });
+      return;
+    }
+    const { offset, limit } = parseHistoryPagination(req.query.offset, req.query.limit, 20);
+
+    try {
+      res.json(
+        await parser.getLineHistory(pathResult.path, ref, startLine, endLine, offset, limit),
+      );
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to load line history',
+      });
     }
   });
 

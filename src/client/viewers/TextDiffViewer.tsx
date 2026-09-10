@@ -26,6 +26,7 @@ export function TextDiffViewer({
   onUpdateMessage,
   onLineClick,
   onOpenInEditor,
+  onShowLineHistory,
   commentTrigger,
   onCommentTriggerHandled,
 }: DiffViewerBodyProps) {
@@ -111,6 +112,7 @@ export function TextDiffViewer({
                 onRemoveMessage={onRemoveMessage}
                 onUpdateMessage={onUpdateMessage}
                 onOpenInEditor={onOpenInEditor}
+                onShowLineHistory={onShowLineHistory}
                 mode={diffMode}
                 syntaxTheme={syntaxTheme}
                 wrapCodeLines={wrapCodeLines}

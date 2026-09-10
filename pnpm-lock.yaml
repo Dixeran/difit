@@ -8,60 +8,18 @@ importers:
 
   .:
     dependencies:
-      '@floating-ui/react':
-        specifier: ^0.27.16
-        version: 0.27.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@parcel/watcher':
         specifier: ^2.5.1
         version: 2.5.6
       commander:
         specifier: ^15.0.0
         version: 15.0.0
-      diff:
-        specifier: ^9.0.0
-        version: 9.0.0
       express:
         specifier: ^5.1.0
         version: 5.2.1
-      js-yaml:
-        specifier: ^4.3.0
-        version: 4.3.0
-      lucide-react:
-        specifier: ^1.0.0
-        version: 1.20.0(react@19.2.7)
-      mermaid:
-        specifier: ^11.13.0
-        version: 11.15.0
       open:
         specifier: ^11.0.0
         version: 11.0.0
-      prism-react-renderer:
-        specifier: ^2.4.1
-        version: 2.4.1(react@19.2.7)
-      prism-svelte:
-        specifier: ^0.5.0
-        version: 0.5.0
-      prismjs:
-        specifier: ^1.30.0
-        version: 1.30.0
-      react:
-        specifier: ^19.1.0
-        version: 19.2.7
-      react-dom:
-        specifier: ^19.1.0
-        version: 19.2.7(react@19.2.7)
-      react-hotkeys-hook:
-        specifier: ^5.2.4
-        version: 5.3.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      react-markdown:
-        specifier: ^10.1.0
-        version: 10.1.0(@types/react@19.2.17)(react@19.2.7)
-      remark-breaks:
-        specifier: ^4.0.0
-        version: 4.0.0
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
       simple-git:
         specifier: ^3.28.0
         version: 3.36.0
@@ -72,6 +30,9 @@ importers:
         specifier: ^0.27.0
         version: 0.27.0
     devDependencies:
+      '@floating-ui/react':
+        specifier: ^0.27.16
+        version: 0.27.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tailwindcss/postcss':
         specifier: ^4.1.11
         version: 4.3.1
@@ -108,18 +69,30 @@ importers:
       autoprefixer:
         specifier: ^10.4.21
         version: 10.5.0(postcss@8.5.15)
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       eslint-plugin-react-hooks:
         specifier: ^7.0.1
         version: 7.1.1(eslint@9.39.2(jiti@2.7.0))
       happy-dom:
         specifier: ^20.0.0
         version: 20.10.6
+      js-yaml:
+        specifier: ^4.3.0
+        version: 4.3.0
       knip:
         specifier: ^6.0.0
         version: 6.17.1
       lefthook:
         specifier: ^2.0.0
         version: 2.1.9
+      lucide-react:
+        specifier: ^1.0.0
+        version: 1.20.0(react@19.2.7)
+      mermaid:
+        specifier: ^11.13.0
+        version: 11.15.0
       oxfmt:
         specifier: ^0.55.0
         version: 0.55.0
@@ -135,6 +108,33 @@ importers:
       postcss:
         specifier: ^8.5.6
         version: 8.5.15
+      prism-react-renderer:
+        specifier: ^2.4.1
+        version: 2.4.1(react@19.2.7)
+      prism-svelte:
+        specifier: ^0.5.0
+        version: 0.5.0
+      prismjs:
+        specifier: ^1.30.0
+        version: 1.30.0
+      react:
+        specifier: ^19.1.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.7(react@19.2.7)
+      react-hotkeys-hook:
+        specifier: ^5.2.4
+        version: 5.3.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.17)(react@19.2.7)
+      remark-breaks:
+        specifier: ^4.0.0
+        version: 4.0.0
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
       tailwindcss:
         specifier: ^4.1.11
         version: 4.3.1

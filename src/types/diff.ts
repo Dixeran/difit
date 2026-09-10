@@ -61,6 +61,12 @@ export interface DiffResponse {
   repositoryId?: string;
   commentImports?: CommentImport[];
   commentImportId?: string;
+  capabilities?: DiffCapabilities;
+}
+
+export interface DiffCapabilities {
+  commitLookup: boolean;
+  history: boolean;
 }
 
 export interface GeneratedStatusResponse {
@@ -252,6 +258,97 @@ export interface GitGraphResponse {
   maxCount: number;
 }
 
+export interface GitCommitDetails {
+  hash: string;
+  shortHash: string;
+  parents: string[];
+  subject: string;
+  body: string;
+  refs: string[];
+  authorName: string;
+  authorEmail: string;
+  authoredAt: string;
+  committerName: string;
+  committerEmail: string;
+  committedAt: string;
+  filesChanged: number;
+  additions: number;
+  deletions: number;
+  selection: DiffSelection;
+}
+
+export interface HistoryCommitEntry {
+  hash: string;
+  shortHash: string;
+  parents: string[];
+  subject: string;
+  authorName: string;
+  authorEmail: string;
+  authoredAt: string;
+  path: string;
+  previousPath?: string;
+  additions?: number;
+  deletions?: number;
+  patch?: DiffChunk[];
+  focusSide?: DiffSide;
+  focusLine?: number;
+}
+
+export interface FileHistoryResponse {
+  entries: HistoryCommitEntry[];
+  hasMore: boolean;
+  nextOffset?: number;
+}
+
+export interface LineHistoryResponse extends FileHistoryResponse {
+  renameBoundary: boolean;
+}
+
+export interface DiffFocusTarget {
+  filePath: string;
+  line?: number;
+  side?: DiffSide;
+}
+
+export type DiffHistoryTarget =
+  | { kind: 'file'; filePath: string; ref: string }
+  | {
+      kind: 'line';
+      filePath: string;
+      ref: string;
+      startLine: number;
+      endLine: number;
+      side: DiffSide;
+    }
+  | { kind: 'unavailable'; filePath: string; reason: string };
+
+export interface DiffTabViewState {
+  scrollTop: number;
+  collapsedFiles: string[];
+  expandedState: ExpandedLinesState;
+  cursor: {
+    fileIndex: number;
+    chunkIndex: number;
+    lineIndex: number;
+    side: 'left' | 'right';
+  } | null;
+}
+
+export interface DiffTabState {
+  id: string;
+  selection: DiffSelection;
+  title: string;
+  ignoreWhitespace: boolean;
+  data: DiffResponse | null;
+  loading: boolean;
+  error: string | null;
+  focus?: DiffFocusTarget;
+  viewState: DiffTabViewState;
+  commitDetails?: GitCommitDetails | null;
+  commitDetailsExpanded: boolean;
+  historyTarget?: DiffHistoryTarget;
+}
+
 // Expanded lines types for showing more context in diffs
 export interface ExpandedLinesState {
   [filePath: string]: FileExpandedState;
@@ -265,7 +362,7 @@ export interface FileExpandedState {
   newTotalLines?: number;
 }
 
-interface ExpandedRange {
+export interface ExpandedRange {
   chunkIndex: number;
   direction: 'up' | 'down';
   count: number;

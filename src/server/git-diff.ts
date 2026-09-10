@@ -8,8 +8,12 @@ import {
   type DiffLine,
   type DiffResponse,
   type DiffSelection,
+  type FileHistoryResponse,
+  type GitCommitDetails,
   type GitGraphBranch,
   type GitGraphResponse,
+  type HistoryCommitEntry,
+  type LineHistoryResponse,
 } from '../types/diff.js';
 import {
   EMPTY_TREE_COMMITISH,
@@ -824,6 +828,224 @@ export class GitDiffParser {
     });
 
     return value;
+  }
+
+  private parseHistoryMetadata(value: string): Omit<HistoryCommitEntry, 'path'> {
+    const [
+      hash = '',
+      parents = '',
+      authorName = '',
+      authorEmail = '',
+      authoredAt = '',
+      subject = '',
+    ] = value.split('\x1f');
+    return {
+      hash,
+      shortHash: hash.slice(0, 7),
+      parents: parents ? parents.split(' ') : [],
+      authorName,
+      authorEmail,
+      authoredAt,
+      subject,
+    };
+  }
+
+  private parseNumstatPath(path: string): { path: string; previousPath?: string } {
+    const braceRename = path.match(/^(.*)\{(.*) => (.*)\}(.*)$/);
+    if (braceRename) {
+      const [, prefix = '', previous = '', next = '', suffix = ''] = braceRename;
+      return {
+        path: `${prefix}${next}${suffix}`,
+        previousPath: `${prefix}${previous}${suffix}`,
+      };
+    }
+
+    const simpleRename = path.match(/^(.*) => (.*)$/);
+    if (simpleRename) {
+      return { path: simpleRename[2] ?? path, previousPath: simpleRename[1] };
+    }
+    return { path };
+  }
+
+  private parseNumstat(output: string): {
+    filesChanged: number;
+    additions: number;
+    deletions: number;
+  } {
+    let filesChanged = 0;
+    let additions = 0;
+    let deletions = 0;
+    for (const line of output.split(/\r?\n/)) {
+      const [added, deleted, path] = line.split('\t');
+      if (!path) continue;
+      filesChanged += 1;
+      if (added && added !== '-') additions += Number.parseInt(added, 10) || 0;
+      if (deleted && deleted !== '-') deletions += Number.parseInt(deleted, 10) || 0;
+    }
+    return { filesChanged, additions, deletions };
+  }
+
+  async getCommitDetails(commitHash: string): Promise<GitCommitDetails> {
+    if (!/^[0-9a-f]{4,40}$/i.test(commitHash)) {
+      throw new Error('Commit hash must be a 4 to 40 character hexadecimal SHA');
+    }
+
+    let hash: string;
+    try {
+      hash = (await this.git.revparse(['--verify', `${commitHash}^0`])).trim();
+    } catch {
+      throw new Error(`Commit not found or hash is ambiguous: ${commitHash}`);
+    }
+
+    const metadata = await this.git.raw([
+      'show',
+      '-s',
+      '--date=iso-strict',
+      '--format=%H%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%D%x00%s%x00%b',
+      hash,
+    ]);
+    const [
+      fullHash = hash,
+      parentsValue = '',
+      authorName = '',
+      authorEmail = '',
+      authoredAt = '',
+      committerName = '',
+      committerEmail = '',
+      committedAt = '',
+      refsValue = '',
+      subject = '',
+      body = '',
+    ] = metadata.trimEnd().split('\0');
+    const parents = parentsValue ? parentsValue.split(' ') : [];
+    const firstParent = parents[0];
+    const statsOutput = firstParent
+      ? await this.git.raw(['diff', '--numstat', firstParent, fullHash, '--'])
+      : await this.git.raw(['show', '--format=', '--numstat', '--root', fullHash, '--']);
+    const stats = this.parseNumstat(statsOutput);
+
+    return {
+      hash: fullHash,
+      shortHash: fullHash.slice(0, 7),
+      parents,
+      subject,
+      body: body.trimEnd(),
+      refs: refsValue
+        .split(',')
+        .map((ref) => ref.trim())
+        .filter(Boolean),
+      authorName,
+      authorEmail,
+      authoredAt,
+      committerName,
+      committerEmail,
+      committedAt,
+      ...stats,
+      selection: {
+        baseCommitish: firstParent ?? EMPTY_TREE_COMMITISH,
+        targetCommitish: fullHash,
+      },
+    };
+  }
+
+  async getFileHistory(
+    filepath: string,
+    ref: string,
+    offset = 0,
+    limit = 50,
+  ): Promise<FileHistoryResponse> {
+    const path = this.normalizeRepositoryRelativePath(filepath);
+    const commit = (await this.git.revparse(['--verify', `${ref}^0`])).trim();
+    const output = await this.git.raw([
+      'log',
+      '--follow',
+      `--skip=${Math.max(0, offset)}`,
+      `--max-count=${limit + 1}`,
+      '--date=iso-strict',
+      '--format=%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s',
+      '--numstat',
+      commit,
+      '--',
+      path,
+    ]);
+    const parsed = output
+      .split('\x1e')
+      .map((record) => record.trim())
+      .filter(Boolean)
+      .map((record): HistoryCommitEntry | null => {
+        const [metadataLine = '', ...lines] = record.split(/\r?\n/);
+        const statLine = lines.find((line) => line.split('\t').length >= 3);
+        const [added, deleted, ...pathParts] = statLine?.split('\t') ?? [];
+        const parsedPath = this.parseNumstatPath(pathParts.join('\t') || path);
+        return {
+          ...this.parseHistoryMetadata(metadataLine),
+          ...parsedPath,
+          additions: added && added !== '-' ? Number.parseInt(added, 10) || 0 : undefined,
+          deletions: deleted && deleted !== '-' ? Number.parseInt(deleted, 10) || 0 : undefined,
+        };
+      })
+      .filter((entry): entry is HistoryCommitEntry => entry !== null);
+    const hasMore = parsed.length > limit;
+    const entries = parsed.slice(0, limit);
+    return {
+      entries,
+      hasMore,
+      nextOffset: hasMore ? offset + entries.length : undefined,
+    };
+  }
+
+  async getLineHistory(
+    filepath: string,
+    ref: string,
+    startLine: number,
+    endLine: number,
+    offset = 0,
+    limit = 20,
+  ): Promise<LineHistoryResponse> {
+    const path = this.normalizeRepositoryRelativePath(filepath);
+    const commit = (await this.git.revparse(['--verify', `${ref}^0`])).trim();
+    const output = await this.git.raw([
+      'log',
+      `-L${startLine},${endLine}:${path}`,
+      `--skip=${Math.max(0, offset)}`,
+      `--max-count=${limit + 1}`,
+      '--date=iso-strict',
+      '--format=%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s',
+      '--no-ext-diff',
+      '--color=never',
+      commit,
+    ]);
+    const parsed = output
+      .split('\x1e')
+      .map((record) => record.trim())
+      .filter(Boolean)
+      .map((record): HistoryCommitEntry => {
+        const newline = record.indexOf('\n');
+        const metadataLine = newline >= 0 ? record.slice(0, newline).trim() : record;
+        const patchText = newline >= 0 ? record.slice(newline + 1) : '';
+        const patchFiles = this.parseUnifiedDiff(patchText);
+        const patchFile = patchFiles[0];
+        const changedLine = patchFile?.chunks
+          .flatMap((chunk) => chunk.lines)
+          .find((line) => line.type === 'add' || line.type === 'delete');
+        return {
+          ...this.parseHistoryMetadata(metadataLine),
+          path: patchFile?.path ?? path,
+          previousPath: patchFile?.oldPath,
+          patch: patchFile?.chunks ?? [],
+          focusSide: changedLine?.type === 'delete' ? 'old' : 'new',
+          focusLine:
+            changedLine?.type === 'delete' ? changedLine.oldLineNumber : changedLine?.newLineNumber,
+        };
+      });
+    const hasMore = parsed.length > limit;
+    const entries = parsed.slice(0, limit);
+    return {
+      entries,
+      hasMore,
+      nextOffset: hasMore ? offset + entries.length : undefined,
+      renameBoundary: entries.some((entry) => Boolean(entry.previousPath)),
+    };
   }
 
   clearResolvedCommitCache(): void {

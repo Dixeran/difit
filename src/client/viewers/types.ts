@@ -41,6 +41,7 @@ export type DiffViewerBodyProps = {
   onRemoveMessage: (threadId: string, messageId: string) => void;
   onUpdateMessage: (threadId: string, messageId: string, newBody: string) => void;
   onOpenInEditor?: (filePath: string, lineNumber: number) => void;
+  onShowLineHistory?: (side: DiffSide, line: LineNumber, fallbackLine?: LineNumber) => void;
   onLineClick?: (
     fileIndex: number,
     chunkIndex: number,

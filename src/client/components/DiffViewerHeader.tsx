@@ -7,6 +7,7 @@ import {
   FilePen,
   FilePlus,
   FileX,
+  History,
   Square,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -23,6 +24,7 @@ interface DiffViewerHeaderProps {
   onToggleCollapsed: (path: string) => void;
   onToggleAllCollapsed: (shouldCollapse: boolean) => void;
   onToggleReviewed: (path: string) => void;
+  onShowHistory?: () => void;
 }
 
 const getFileIcon = (status: DiffFile['status']) => {
@@ -47,6 +49,7 @@ export const DiffViewerHeader = ({
   onToggleCollapsed,
   onToggleAllCollapsed,
   onToggleReviewed,
+  onShowHistory,
 }: DiffViewerHeaderProps) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -108,6 +111,17 @@ export const DiffViewerHeader = ({
       </div>
 
       <div className="flex items-center gap-3">
+        {onShowHistory && (
+          <button
+            type="button"
+            onClick={onShowHistory}
+            className="flex items-center gap-1.5 rounded border border-github-border px-2 py-1 text-xs text-github-text-secondary hover:bg-github-bg-tertiary hover:text-github-text-primary"
+            title="Show file history"
+          >
+            <History size={13} />
+            History
+          </button>
+        )}
         {isChangedSinceViewed && !isReviewed && (
           <span
             className="inline-flex h-6 items-center rounded-full border border-github-warning px-2.5 text-xs font-medium text-github-warning"

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tscEntry = resolve(packageRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 const viteEntry = resolve(packageRoot, 'node_modules', 'vite', 'bin', 'vite.js');
+const prebuiltCliEntry = resolve(packageRoot, 'dist', 'cli', 'index.js');
+const prebuiltClientEntry = resolve(packageRoot, 'dist', 'client', 'index.html');
 
 const runNode = (entry, args, description, env = process.env) => {
   const result = spawnSync(process.execPath, [entry, ...args], {
@@ -51,12 +53,16 @@ const installBuildDependencies = () => {
   runNode(packageManagerEntry, installArgs, 'Installing build dependencies', installEnvironment);
 };
 
-if (!existsSync(tscEntry) || !existsSync(viteEntry)) {
-  installBuildDependencies();
-}
+const hasPrebuiltPackage = existsSync(prebuiltCliEntry) && existsSync(prebuiltClientEntry);
 
-runNode(tscEntry, ['--project', 'tsconfig.cli.json'], 'TypeScript build');
-runNode(viteEntry, ['build'], 'Client build');
+if (!hasPrebuiltPackage) {
+  if (!existsSync(tscEntry) || !existsSync(viteEntry)) {
+    installBuildDependencies();
+  }
+
+  runNode(tscEntry, ['--project', 'tsconfig.cli.json'], 'TypeScript build');
+  runNode(viteEntry, ['build'], 'Client build');
+}
 
 const initialDirectory = resolve(process.env.INIT_CWD ?? packageRoot);
 if (initialDirectory === packageRoot) {

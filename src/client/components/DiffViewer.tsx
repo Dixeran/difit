@@ -42,6 +42,13 @@ interface DiffViewerProps {
   onRemoveMessage: (threadId: string, messageId: string) => void;
   onUpdateMessage: (threadId: string, messageId: string, newBody: string) => void;
   onOpenInEditor?: (filePath: string, lineNumber: number) => void;
+  onShowFileHistory?: (file: DiffFile) => void;
+  onShowLineHistory?: (
+    file: DiffFile,
+    side: DiffSide,
+    line: LineNumber,
+    fallbackLine?: LineNumber,
+  ) => void;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
   wrapCodeLines?: boolean;
   baseCommitish?: string;
@@ -194,6 +201,8 @@ export const DiffViewer = memo(function DiffViewer({
   onRemoveMessage,
   onUpdateMessage,
   onOpenInEditor,
+  onShowFileHistory,
+  onShowLineHistory,
   syntaxTheme,
   wrapCodeLines = true,
   baseCommitish,
@@ -363,6 +372,9 @@ export const DiffViewer = memo(function DiffViewer({
     onRemoveMessage,
     onUpdateMessage,
     onOpenInEditor,
+    onShowLineHistory: onShowLineHistory
+      ? (side, line, fallbackLine) => onShowLineHistory(file, side, line, fallbackLine)
+      : undefined,
     onLineClick,
     commentTrigger,
     onCommentTriggerHandled,
@@ -385,6 +397,7 @@ export const DiffViewer = memo(function DiffViewer({
         onToggleCollapsed={onToggleCollapsed}
         onToggleAllCollapsed={onToggleAllCollapsed}
         onToggleReviewed={onToggleReviewed}
+        onShowHistory={onShowFileHistory ? () => onShowFileHistory(file) : undefined}
       />
 
       {!isCollapsed && (

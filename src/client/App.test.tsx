@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { HotkeysProvider } from 'react-hotkeys-hook';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
@@ -1098,5 +1099,120 @@ describe('App Component - Mobile sidebar auto-close', () => {
     await waitFor(() => {
       expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
     });
+  });
+});
+
+describe('App Component - Diff workspace tabs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockComments = [];
+    vi.mocked(useViewport).mockReturnValue({ isMobile: false, isDesktop: true });
+  });
+
+  it('opens a commit SHA in a new tab and can return to the original diff', async () => {
+    const user = userEvent.setup();
+    const firstHash = '1111111111111111111111111111111111111111';
+    const firstParent = '0000000000000000000000000000000000000000';
+    const secondHash = '2222222222222222222222222222222222222222';
+    const secondParent = '1111111111111111111111111111111111111111';
+    const buildDetails = (hash: string, parent: string, subject: string) => ({
+      hash,
+      shortHash: hash.slice(0, 7),
+      parents: [parent],
+      subject,
+      body: '',
+      refs: [],
+      authorName: 'Ada',
+      authorEmail: 'ada@example.com',
+      authoredAt: '2026-01-02T00:00:00Z',
+      committerName: 'Ada',
+      committerEmail: 'ada@example.com',
+      committedAt: '2026-01-02T00:00:00Z',
+      filesChanged: 1,
+      additions: 1,
+      deletions: 0,
+      selection: { baseCommitish: parent, targetCommitish: hash },
+    });
+    const initialDiff: DiffResponse = {
+      ...mockDiffResponse,
+      commit: '0000000...1111111',
+      baseCommitish: firstParent.slice(0, 7),
+      targetCommitish: firstHash.slice(0, 7),
+      requestedBaseCommitish: firstParent,
+      requestedTargetCommitish: firstHash,
+      capabilities: { commitLookup: true, history: true },
+    };
+    const secondDiff: DiffResponse = {
+      ...initialDiff,
+      commit: '1111111...2222222',
+      baseCommitish: secondParent.slice(0, 7),
+      targetCommitish: secondHash.slice(0, 7),
+      requestedBaseCommitish: secondParent,
+      requestedTargetCommitish: secondHash,
+    };
+
+    vi.mocked(global.fetch).mockImplementation((input, _init) => {
+      const url = String(input);
+      if (url.includes('/api/revisions')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ specialOptions: [], branches: [], commits: [] }),
+        } as Response);
+      }
+      if (url.includes('/api/comments-json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ version: 0, threads: [] }),
+        } as Response);
+      }
+      if (url.includes('/api/comments')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ version: 0, threads: [] }),
+        } as Response);
+      }
+      if (url.includes('/api/user-settings')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+      }
+      if (url.includes(`/api/commits/${secondHash.slice(0, 7)}`)) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => buildDetails(secondHash, secondParent, 'Second commit'),
+        } as Response);
+      }
+      if (url.includes(`/api/commits/${firstHash.slice(0, 7)}`)) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => buildDetails(firstHash, firstParent, 'First commit'),
+        } as Response);
+      }
+      if (url.includes('/api/diff')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => (url.includes(secondHash) ? secondDiff : initialDiff),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    });
+
+    renderApp();
+    expect(await screen.findByRole('tab', { name: /First commit/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await user.click(screen.getByRole('button', { name: /Commit/ }));
+    await user.type(screen.getByRole('textbox', { name: 'Commit SHA' }), secondHash.slice(0, 7));
+    await user.click(screen.getByRole('button', { name: 'Open' }));
+
+    const secondTab = await screen.findByRole('tab', { name: /Second commit/ });
+    expect(secondTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+
+    await user.click(screen.getByRole('tab', { name: /First commit/ }));
+    expect(screen.getByRole('tab', { name: /First commit/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 });

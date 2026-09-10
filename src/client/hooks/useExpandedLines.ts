@@ -14,6 +14,8 @@ interface UseExpandedLinesOptions {
   baseCommitish?: string;
   targetCommitish?: string;
   diffIdentity?: string | number;
+  initialState?: ExpandedLinesState;
+  onStateChange?: (state: ExpandedLinesState) => void;
 }
 
 export interface MergedChunk extends DiffChunk {
@@ -87,12 +89,16 @@ export function useExpandedLines({
   baseCommitish,
   targetCommitish,
   diffIdentity,
+  initialState,
+  onStateChange,
 }: UseExpandedLinesOptions): UseExpandedLinesResult {
   const isStdinDiff = baseCommitish === 'stdin' || targetCommitish === 'stdin';
   const [expandedState, setExpandedState] = useState<ExpandedLinesState>({});
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdatedFilePath, setLastUpdatedFilePath] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(0);
+  const initialStateRef = useRef(initialState);
+  initialStateRef.current = initialState;
   // Track pending fetch promises to allow waiting for in-flight requests (#2)
   const pendingFetchesRef = useRef<Map<string, Promise<FileExpandedState | null>>>(new Map());
   // Use ref to access current state without causing dependency loop (#2)
@@ -103,12 +109,17 @@ export function useExpandedLines({
   useEffect(() => {
     revisionGenerationRef.current += 1;
     pendingFetchesRef.current.clear();
-    expandedStateRef.current = {};
-    setExpandedState({});
+    const restoredState = initialStateRef.current ?? {};
+    expandedStateRef.current = restoredState;
+    setExpandedState(restoredState);
     setIsLoading(false);
     setLastUpdatedFilePath(null);
     setLastUpdatedAt(0);
   }, [baseCommitish, targetCommitish, diffIdentity]);
+
+  useEffect(() => {
+    onStateChange?.(expandedState);
+  }, [expandedState, onStateChange]);
 
   const ensureFileContent = useCallback(
     async (file: DiffFile): Promise<FileExpandedState | null> => {

@@ -119,6 +119,33 @@ vi.mock('./git-diff.js', () => {
       hasMore: false,
       maxCount: 500,
     });
+    getCommitDetails = vi.fn().mockResolvedValue({
+      hash: 'abc1234abc1234abc1234abc1234abc1234abc12',
+      shortHash: 'abc1234',
+      parents: ['def4567def4567def4567def4567def4567def45'],
+      subject: 'Test commit',
+      body: '',
+      refs: [],
+      authorName: 'Ada',
+      authorEmail: 'ada@example.com',
+      authoredAt: '2026-01-02T00:00:00Z',
+      committerName: 'Ada',
+      committerEmail: 'ada@example.com',
+      committedAt: '2026-01-02T00:00:00Z',
+      filesChanged: 1,
+      additions: 2,
+      deletions: 1,
+      selection: {
+        baseCommitish: 'def4567def4567def4567def4567def4567def45',
+        targetCommitish: 'abc1234abc1234abc1234abc1234abc1234abc12',
+      },
+    });
+    getFileHistory = vi.fn().mockResolvedValue({ entries: [], hasMore: false });
+    getLineHistory = vi.fn().mockResolvedValue({
+      entries: [],
+      hasMore: false,
+      renameBoundary: false,
+    });
   }
 
   return { GitDiffParser: GitDiffParserMock };
@@ -1430,6 +1457,69 @@ describe('Server Integration Tests', () => {
       expect(data.selectedBranches).toEqual(['refs/heads/main']);
       expect(data.commits[0]).toMatchObject({ shortHash: 'abc1234', refs: ['main'] });
       expect(parser.getGitGraph).toHaveBeenCalledWith(['refs/heads/main'], 200);
+    });
+  });
+
+  describe('Commit and history APIs', () => {
+    it('returns commit details for a hexadecimal SHA', async () => {
+      const result = await startServer({
+        selection: { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
+      });
+      servers.push(result.server);
+
+      const response = await fetch(`http://localhost:${result.port}/api/commits/abc1234`);
+      const data = (await response.json()) as any;
+      const parser = parserInstances.at(-1);
+
+      expect(response.ok).toBe(true);
+      expect(data).toMatchObject({ shortHash: 'abc1234', subject: 'Test commit' });
+      expect(parser.getCommitDetails).toHaveBeenCalledWith('abc1234');
+    });
+
+    it('rejects non-SHA commit lookup input', async () => {
+      const result = await startServer({
+        selection: { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
+      });
+      servers.push(result.server);
+
+      const response = await fetch(`http://localhost:${result.port}/api/commits/HEAD`);
+
+      expect(response.status).toBe(400);
+      expect(parserInstances.at(-1).getCommitDetails).not.toHaveBeenCalled();
+    });
+
+    it('forwards validated file and line history queries', async () => {
+      const result = await startServer({
+        selection: { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
+      });
+      servers.push(result.server);
+      const parser = parserInstances.at(-1);
+
+      const fileResponse = await fetch(
+        `http://localhost:${result.port}/api/file-history?path=src%2Fapp.ts&ref=abc1234&offset=5&limit=10`,
+      );
+      const lineResponse = await fetch(
+        `http://localhost:${result.port}/api/line-history?path=src%2Fapp.ts&ref=abc1234&startLine=4&endLine=6`,
+      );
+
+      expect(fileResponse.ok).toBe(true);
+      expect(lineResponse.ok).toBe(true);
+      expect(parser.getFileHistory).toHaveBeenCalledWith('src/app.ts', 'abc1234', 5, 10);
+      expect(parser.getLineHistory).toHaveBeenCalledWith('src/app.ts', 'abc1234', 4, 6, 0, 20);
+    });
+
+    it('rejects history paths outside the repository', async () => {
+      const result = await startServer({
+        selection: { targetCommitish: 'HEAD', baseCommitish: 'HEAD^' },
+      });
+      servers.push(result.server);
+
+      const response = await fetch(
+        `http://localhost:${result.port}/api/file-history?path=..%2Fsecret&ref=abc1234`,
+      );
+
+      expect(response.status).toBe(400);
+      expect(parserInstances.at(-1).getFileHistory).not.toHaveBeenCalled();
     });
   });
 

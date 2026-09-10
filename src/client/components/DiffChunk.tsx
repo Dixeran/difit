@@ -58,6 +58,7 @@ interface DiffChunkProps {
   onCommentTriggerHandled?: () => void;
   filename?: string;
   onOpenInEditor?: (filePath: string, lineNumber: number) => void;
+  onShowLineHistory?: (side: DiffSide, line: LineNumber, fallbackLine?: LineNumber) => void;
 }
 
 export const DiffChunk = memo(function DiffChunk({
@@ -81,6 +82,7 @@ export const DiffChunk = memo(function DiffChunk({
   onCommentTriggerHandled,
   filename,
   onOpenInEditor,
+  onShowLineHistory,
 }: DiffChunkProps) {
   const [startLine, setStartLine] = useState<number | null>(null);
   const [endLine, setEndLine] = useState<number | null>(null);
@@ -402,6 +404,7 @@ export const DiffChunk = memo(function DiffChunk({
         onRemoveMessage={onRemoveMessage}
         onUpdateMessage={onUpdateMessage}
         onOpenInEditor={onOpenInEditor}
+        onShowLineHistory={onShowLineHistory}
         syntaxTheme={syntaxTheme}
         wrapCodeLines={wrapCodeLines}
         cursor={cursor}
@@ -489,6 +492,19 @@ export const DiffChunk = memo(function DiffChunk({
                           if (!filename) return;
                           onOpenInEditor(filename, lineNumber);
                         }
+                      : undefined
+                  }
+                  onShowHistory={
+                    commentLineNumber && onShowLineHistory
+                      ? () =>
+                          onShowLineHistory(
+                            commentSide,
+                            getCommentLineFromAnchor({
+                              side: commentSide,
+                              lineNumber: commentLineNumber,
+                            }),
+                            line.oldLineNumber,
+                          )
                       : undefined
                   }
                   syntaxTheme={syntaxTheme}

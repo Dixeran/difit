@@ -21,6 +21,7 @@ import { CommentForm } from './CommentForm';
 import { CommentThreadCard } from './CommentThreadCard';
 import { EnhancedPrismSyntaxHighlighter } from './EnhancedPrismSyntaxHighlighter';
 import { OpenInEditorButton } from './OpenInEditorButton';
+import { HistoryButton } from './HistoryButton';
 import type { AppearanceSettings } from './SettingsModal';
 import { WordLevelDiffHighlighter } from './WordLevelDiffHighlighter';
 
@@ -58,6 +59,7 @@ interface SideBySideDiffChunkProps {
   onCommentTriggerHandled?: () => void;
   filename?: string;
   onOpenInEditor?: (filePath: string, lineNumber: number) => void;
+  onShowLineHistory?: (side: DiffSide, line: LineNumber, fallbackLine?: LineNumber) => void;
 }
 
 interface SideBySideLine {
@@ -161,6 +163,7 @@ export function SideBySideDiffChunk({
   onCommentTriggerHandled,
   filename,
   onOpenInEditor,
+  onShowLineHistory,
 }: SideBySideDiffChunkProps) {
   const { getOldTokens, getNewTokens } = useFileLevelTokensLookup();
   const [startLine, setStartLine] = useState<LineSelection | null>(null);
@@ -666,6 +669,13 @@ export function SideBySideDiffChunk({
                     {hoveredLine?.side === 'old' &&
                       hoveredLine?.lineNumber === sideLine.oldLineNumber && (
                         <>
+                          {onShowLineHistory && oldSelection && (
+                            <HistoryButton
+                              onClick={() =>
+                                onShowLineHistory('old', getCommentLineFromAnchor(oldSelection))
+                              }
+                            />
+                          )}
                           {onOpenInEditor &&
                             filename &&
                             sideLine.oldLine?.type !== 'delete' &&
@@ -741,6 +751,17 @@ export function SideBySideDiffChunk({
                     {hoveredLine?.side === 'new' &&
                       hoveredLine?.lineNumber === sideLine.newLineNumber && (
                         <>
+                          {onShowLineHistory && newSelection && (
+                            <HistoryButton
+                              onClick={() =>
+                                onShowLineHistory(
+                                  'new',
+                                  getCommentLineFromAnchor(newSelection),
+                                  sideLine.oldLineNumber,
+                                )
+                              }
+                            />
+                          )}
                           {onOpenInEditor && filename && sideLine.newLineNumber !== undefined && (
                             <OpenInEditorButton
                               onClick={() => {

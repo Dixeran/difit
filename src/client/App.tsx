@@ -18,6 +18,11 @@ import {
   type LineNumber,
   type CommentThread,
   type RevisionsResponse,
+  type DiffTabState,
+  type ExpandedLinesState,
+  type GitCommitDetails,
+  type HistoryCommitEntry,
+  type DiffHistoryTarget,
 } from '../types/diff';
 import { DEFAULT_DIFF_VIEW_MODE, normalizeDiffViewMode } from '../utils/diffMode';
 import { mergeCommentThreads } from '../utils/commentImports';
@@ -32,11 +37,14 @@ import { Checkbox } from './components/Checkbox';
 import { CommentsDropdown } from './components/CommentsDropdown';
 import { CommentsListModal } from './components/CommentsListModal';
 import { DiffQuickMenu } from './components/DiffQuickMenu';
+import { DiffTabsBar } from './components/DiffTabsBar';
 import { DiffViewer } from './components/DiffViewer';
+import { CommitDetailsPanel } from './components/CommitDetailsPanel';
 import { FileList } from './components/FileList';
 import { GitHubIcon } from './components/GitHubIcon';
 import { GitGraphModal } from './components/GitGraphModal';
 import { HelpModal } from './components/HelpModal';
+import { HistoryPanel } from './components/HistoryPanel';
 import { Logo } from './components/Logo';
 import { ReloadButton } from './components/ReloadButton';
 import { RevisionDetailModal } from './components/RevisionDetailModal';
@@ -72,6 +80,41 @@ const SIDEBAR_OPEN_STORAGE_KEY = 'difit.sidebarOpen';
 const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_MAX_WIDTH = 600;
 const SIDEBAR_DEFAULT_WIDTH = 280;
+let nextDiffTabId = 1;
+
+const createEmptyTabViewState = (): DiffTabState['viewState'] => ({
+  scrollTop: 0,
+  collapsedFiles: [],
+  expandedState: {},
+  cursor: null,
+});
+
+const createInitialDiffTab = (): DiffTabState => ({
+  id: `diff-tab-${nextDiffTabId++}`,
+  selection: createDiffSelection('', ''),
+  title: 'Current diff',
+  ignoreWhitespace: true,
+  data: null,
+  loading: true,
+  error: null,
+  viewState: createEmptyTabViewState(),
+  commitDetails: null,
+  commitDetailsExpanded: false,
+});
+
+const getSelectionTitle = (selection: DiffSelection) => {
+  const base = selection.baseCommitish || 'base';
+  const target = selection.targetCommitish || 'target';
+  return `${base.length > 12 ? base.slice(0, 7) : base}…${target.length > 12 ? target.slice(0, 7) : target}`;
+};
+
+const isSpecialRevision = (value: string | undefined) =>
+  value === undefined ||
+  value === '' ||
+  value === '.' ||
+  value === 'working' ||
+  value === 'staged' ||
+  value === 'stdin';
 
 const parseDiffViewMode = (value: unknown): DiffViewMode | null => {
   switch (value) {
@@ -136,6 +179,21 @@ const getStoredSidebarOpen = (): boolean | null => {
 const getInitialFileTreeOpen = () => getStoredSidebarOpen() ?? true;
 
 function App() {
+  const initialTabRef = useRef<DiffTabState | null>(null);
+  if (!initialTabRef.current) {
+    initialTabRef.current = createInitialDiffTab();
+  }
+  const [tabs, setTabs] = useState<DiffTabState[]>([initialTabRef.current]);
+  const [activeTabId, setActiveTabId] = useState(initialTabRef.current.id);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+  const activeTab = useMemo(
+    () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0],
+    [activeTabId, tabs],
+  );
+  const [historyTarget, setHistoryTarget] = useState<DiffHistoryTarget | null>(null);
   const [diffData, setDiffData] = useState<DiffResponse | null>(null);
   const [diffDataVersion, setDiffDataVersion] = useState(0);
   const [diffMode, setDiffMode] = useState<DiffViewMode>(getInitialDiffViewMode);
@@ -170,6 +228,15 @@ function App() {
   selectedRevisionRef.current = selectedRevision;
   const diffRequestIdRef = useRef(0);
   const activeDiffAbortControllerRef = useRef<AbortController | null>(null);
+  const updateTab = useCallback((tabId: string, update: (tab: DiffTabState) => DiffTabState) => {
+    setTabs((current) => current.map((tab) => (tab.id === tabId ? update(tab) : tab)));
+  }, []);
+  const updateActiveTab = useCallback(
+    (update: (tab: DiffTabState) => DiffTabState) => {
+      updateTab(activeTabIdRef.current, update);
+    },
+    [updateTab],
+  );
   const resolvedSelection = useMemo<DiffSelection | null>(() => {
     if (!diffData?.baseCommitish || !diffData?.targetCommitish) {
       return null;
@@ -463,6 +530,7 @@ function App() {
 
   // Lift expand state to App level so navigation and rendering share the same merged chunks
   const {
+    expandedState,
     isLoading: isExpandLoading,
     expandLines,
     expandAllBetweenChunks,
@@ -473,6 +541,16 @@ function App() {
     baseCommitish: diffData?.baseCommitish,
     targetCommitish: diffData?.targetCommitish,
     diffIdentity: diffDataVersion,
+    initialState: activeTab?.viewState.expandedState,
+    onStateChange: useCallback(
+      (nextExpandedState: ExpandedLinesState) => {
+        updateActiveTab((tab) => ({
+          ...tab,
+          viewState: { ...tab.viewState, expandedState: nextExpandedState },
+        }));
+      },
+      [updateActiveTab],
+    ),
   });
 
   const getMergedChunksRef = useRef(getMergedChunks);
@@ -562,6 +640,49 @@ function App() {
     chunkIndex: number;
     lineIndex: number;
   } | null>(null);
+
+  const fetchCommitDetailsForDiff = useCallback(
+    async (data: DiffResponse, signal?: AbortSignal): Promise<GitCommitDetails | null> => {
+      if (
+        data.capabilities?.commitLookup !== true ||
+        data.requestedBaseMode === 'merge-base' ||
+        isSpecialRevision(data.targetCommitish)
+      ) {
+        return null;
+      }
+      const response = await fetch(`/api/commits/${encodeURIComponent(data.targetCommitish)}`, {
+        signal,
+      });
+      if (!response.ok) return null;
+      const details = (await response.json()) as GitCommitDetails;
+      const base = data.baseCommitish;
+      const isRoot = base === 'empty-tree' && details.parents.length === 0;
+      const isParent =
+        base !== undefined &&
+        details.parents.some((parent) => parent.startsWith(base) || base.startsWith(parent));
+      return isRoot || isParent ? details : null;
+    },
+    [],
+  );
+
+  const requestDiffData = useCallback(
+    async (selection: DiffSelection | undefined, whitespace: boolean, signal?: AbortSignal) => {
+      const params = new URLSearchParams({ ignoreWhitespace: String(whitespace) });
+      if (selection?.baseCommitish) params.set('base', selection.baseCommitish);
+      if (selection?.targetCommitish) params.set('target', selection.targetCommitish);
+      if (selection?.baseMode === 'merge-base') params.set('baseMode', selection.baseMode);
+      const response = await fetch(`/api/diff?${params}`, { signal });
+      const payload = (await response.json().catch(() => null)) as
+        | (DiffResponse & { error?: string })
+        | null;
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? 'Failed to fetch diff data');
+      }
+      return payload;
+    },
+    [],
+  );
+
   const fetchDiffDataRef = useRef<((selection?: DiffSelection) => Promise<void>) | null>(null);
   const handleWatchReload = useCallback(async () => {
     await fetchDiffDataRef.current?.();
@@ -704,27 +825,18 @@ function App() {
       activeDiffAbortControllerRef.current?.abort();
       const controller = new AbortController();
       activeDiffAbortControllerRef.current = controller;
+      const tabId = activeTabIdRef.current;
       try {
         const requestedSelection =
           selection ??
           (hasUserSelectedRevisionRef.current ? selectedRevisionRef.current : undefined);
-        const params = new URLSearchParams({
-          ignoreWhitespace: String(ignoreWhitespace),
-        });
-        if (requestedSelection?.baseCommitish) params.set('base', requestedSelection.baseCommitish);
-        if (requestedSelection?.targetCommitish)
-          params.set('target', requestedSelection.targetCommitish);
-        if (requestedSelection?.baseMode === 'merge-base')
-          params.set('baseMode', requestedSelection.baseMode);
-
-        const response = await fetch(`/api/diff?${params}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error('Failed to fetch diff data');
-        const data = (await response.json()) as DiffResponse;
+        updateTab(tabId, (tab) => ({ ...tab, loading: true, error: null }));
+        const data = await requestDiffData(requestedSelection, ignoreWhitespace, controller.signal);
         if (diffRequestIdRef.current !== requestId) {
           return;
         }
+        const commitDetails = await fetchCommitDetailsForDiff(data, controller.signal);
+        if (diffRequestIdRef.current !== requestId) return;
         setDiffData(data);
         setDiffDataVersion((prev) => prev + 1);
 
@@ -741,18 +853,47 @@ function App() {
             setSelectedRevision(
               createDiffSelection(requestedBase, requestedTarget, data.requestedBaseMode),
             );
+            selectedRevisionRef.current = createDiffSelection(
+              requestedBase,
+              requestedTarget,
+              data.requestedBaseMode,
+            );
           }
         }
+
+        const nextSelection = createDiffSelection(
+          data.requestedBaseCommitish ?? data.baseCommitish ?? '',
+          data.requestedTargetCommitish ?? data.targetCommitish ?? '',
+          data.requestedBaseMode,
+        );
+        updateTab(tabId, (tab) => ({
+          ...tab,
+          selection: nextSelection,
+          title: commitDetails
+            ? `${commitDetails.shortHash} ${commitDetails.subject}`
+            : getSelectionTitle(nextSelection),
+          ignoreWhitespace,
+          data,
+          loading: false,
+          error: null,
+          commitDetails,
+        }));
 
         // Lock files are now automatically marked as viewed by useViewedFiles hook
       } catch (err) {
         if ((err as { name?: string } | null)?.name === 'AbortError') {
+          updateTab(tabId, (tab) => ({ ...tab, loading: false }));
           return;
         }
         if (diffRequestIdRef.current !== requestId) {
           return;
         }
         setError(err instanceof Error ? err.message : 'Unknown error');
+        updateTab(tabId, (tab) => ({
+          ...tab,
+          loading: false,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        }));
       } finally {
         if (activeDiffAbortControllerRef.current === controller) {
           activeDiffAbortControllerRef.current = null;
@@ -762,7 +903,7 @@ function App() {
         }
       }
     },
-    [ignoreWhitespace],
+    [fetchCommitDetailsForDiff, ignoreWhitespace, requestDiffData, updateTab],
   );
   fetchDiffDataRef.current = fetchDiffData;
 
@@ -864,7 +1005,12 @@ function App() {
 
   // Fetch revision options on mount
   useEffect(() => {
-    fetch('/api/revisions')
+    const tabSelection = tabsRef.current.find((tab) => tab.id === activeTabId)?.selection;
+    const params = new URLSearchParams();
+    if (tabSelection?.baseCommitish) params.set('base', tabSelection.baseCommitish);
+    if (tabSelection?.targetCommitish) params.set('target', tabSelection.targetCommitish);
+    const query = params.toString();
+    fetch(query ? `/api/revisions?${query}` : '/api/revisions')
       .then((res) => (res.ok ? res.json() : null))
       .then((data: RevisionsResponse | null) => {
         setRevisionOptions(data);
@@ -879,7 +1025,7 @@ function App() {
         }
       })
       .catch(() => setRevisionOptions(null));
-  }, []);
+  }, [activeTabId]);
 
   // Handle revision change
   const handleRevisionChange = useCallback(
@@ -892,10 +1038,305 @@ function App() {
       setSelectedRevision(nextSelection);
       setLoading(true);
       setError(null);
+      updateActiveTab((tab) => ({
+        ...tab,
+        selection: nextSelection,
+        title: getSelectionTitle(nextSelection),
+        loading: true,
+        error: null,
+        commitDetails: null,
+        commitDetailsExpanded: false,
+        focus: undefined,
+      }));
       await fetchDiffData(nextSelection);
     },
-    [fetchDiffData, selectedRevision],
+    [fetchDiffData, selectedRevision, updateActiveTab],
   );
+
+  const snapshotActiveTab = useCallback(() => {
+    updateActiveTab((tab) => ({
+      ...tab,
+      data: diffData,
+      selection: selectedRevision,
+      ignoreWhitespace,
+      historyTarget: historyTarget ?? undefined,
+      viewState: {
+        scrollTop: diffScrollContainerRef.current?.scrollTop ?? 0,
+        collapsedFiles: [...collapsedFiles],
+        expandedState,
+        cursor,
+      },
+    }));
+  }, [
+    collapsedFiles,
+    cursor,
+    diffData,
+    expandedState,
+    historyTarget,
+    ignoreWhitespace,
+    selectedRevision,
+    updateActiveTab,
+  ]);
+
+  const activateTab = useCallback(
+    (tabId: string) => {
+      if (tabId === activeTabIdRef.current) return;
+      const nextTab = tabsRef.current.find((tab) => tab.id === tabId);
+      if (!nextTab) return;
+      snapshotActiveTab();
+      activeDiffAbortControllerRef.current?.abort();
+      activeTabIdRef.current = tabId;
+      setActiveTabId(tabId);
+      hasUserSelectedRevisionRef.current = true;
+      selectedRevisionRef.current = nextTab.selection;
+      setSelectedRevision(nextTab.selection);
+      setIgnoreWhitespace(nextTab.ignoreWhitespace);
+      setDiffData(nextTab.data);
+      setLoading(nextTab.loading && !nextTab.data);
+      setError(nextTab.error);
+      setCollapsedFiles(new Set(nextTab.viewState.collapsedFiles));
+      collapsedInitializedRef.current = true;
+      setHistoryTarget(nextTab.historyTarget ?? null);
+      setDiffDataVersion((version) => version + 1);
+      requestAnimationFrame(() => {
+        if (diffScrollContainerRef.current) {
+          diffScrollContainerRef.current.scrollTop = nextTab.viewState.scrollTop;
+        }
+        setCursorPosition(nextTab.viewState.cursor);
+      });
+    },
+    [setCursorPosition, snapshotActiveTab],
+  );
+
+  const closeTab = useCallback(
+    (tabId: string) => {
+      const currentTabs = tabsRef.current;
+      if (currentTabs.length <= 1) return;
+      const index = currentTabs.findIndex((tab) => tab.id === tabId);
+      if (index < 0) return;
+      if (tabId === activeTabIdRef.current) {
+        const replacement = currentTabs[index + 1] ?? currentTabs[index - 1];
+        if (replacement) activateTab(replacement.id);
+      }
+      setTabs((current) => current.filter((tab) => tab.id !== tabId));
+    },
+    [activateTab],
+  );
+
+  const openSelectionInNewTab = useCallback(
+    async (
+      selection: DiffSelection,
+      options?: { details?: GitCommitDetails; focus?: DiffTabState['focus'] },
+    ) => {
+      const existing = tabsRef.current.find((tab) => diffSelectionsEqual(tab.selection, selection));
+      if (existing) {
+        if (options?.focus) {
+          updateTab(existing.id, (tab) => ({ ...tab, focus: options.focus }));
+        }
+        activateTab(existing.id);
+        return;
+      }
+
+      const controller = new AbortController();
+      const data = await requestDiffData(selection, ignoreWhitespace, controller.signal);
+      const details =
+        options?.details ?? (await fetchCommitDetailsForDiff(data, controller.signal));
+      const tab: DiffTabState = {
+        id: `diff-tab-${nextDiffTabId++}`,
+        selection,
+        title: details ? `${details.shortHash} ${details.subject}` : getSelectionTitle(selection),
+        ignoreWhitespace,
+        data,
+        loading: false,
+        error: null,
+        focus: options?.focus,
+        viewState: createEmptyTabViewState(),
+        commitDetails: details,
+        commitDetailsExpanded: false,
+      };
+      snapshotActiveTab();
+      setTabs((current) => [...current, tab]);
+      tabsRef.current = [...tabsRef.current, tab];
+      activeTabIdRef.current = tab.id;
+      setActiveTabId(tab.id);
+      hasUserSelectedRevisionRef.current = true;
+      selectedRevisionRef.current = selection;
+      setSelectedRevision(selection);
+      setDiffData(data);
+      setDiffDataVersion((version) => version + 1);
+      setLoading(false);
+      setError(null);
+      setCollapsedFiles(new Set());
+      collapsedInitializedRef.current = false;
+      setHistoryTarget(null);
+      setCursorPosition(null);
+    },
+    [
+      activateTab,
+      fetchCommitDetailsForDiff,
+      ignoreWhitespace,
+      requestDiffData,
+      setCursorPosition,
+      snapshotActiveTab,
+      updateTab,
+    ],
+  );
+
+  const openCommitHash = useCallback(
+    async (hash: string) => {
+      const response = await fetch(`/api/commits/${encodeURIComponent(hash)}`);
+      const payload = (await response.json().catch(() => null)) as
+        | (GitCommitDetails & { error?: string })
+        | null;
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? 'Commit not found');
+      }
+      await openSelectionInNewTab(payload.selection, { details: payload });
+    },
+    [openSelectionInNewTab],
+  );
+
+  const showHistory = useCallback(
+    (target: DiffHistoryTarget) => {
+      setHistoryTarget(target);
+      updateActiveTab((tab) => ({ ...tab, historyTarget: target }));
+    },
+    [updateActiveTab],
+  );
+
+  const showFileHistory = useCallback(
+    (file: DiffResponse['files'][number]) => {
+      if (!diffData?.capabilities?.history) return;
+      if (!isSpecialRevision(diffData.targetCommitish) && file.status !== 'deleted') {
+        showHistory({ kind: 'file', filePath: file.path, ref: diffData.targetCommitish as string });
+        return;
+      }
+      if (!isSpecialRevision(diffData.baseCommitish)) {
+        showHistory({
+          kind: 'file',
+          filePath: file.oldPath ?? file.path,
+          ref: diffData.baseCommitish as string,
+        });
+        return;
+      }
+      showHistory({
+        kind: 'unavailable',
+        filePath: file.path,
+        reason: 'This file does not have a committed version to inspect yet.',
+      });
+    },
+    [diffData, showHistory],
+  );
+
+  const showLineHistory = useCallback(
+    (
+      file: DiffResponse['files'][number],
+      side: DiffSide,
+      line: LineNumber,
+      fallbackLine?: LineNumber,
+    ) => {
+      if (!diffData?.capabilities?.history) return;
+      let path = side === 'old' ? (file.oldPath ?? file.path) : file.path;
+      let ref = side === 'old' ? diffData.baseCommitish : diffData.targetCommitish;
+      let resolvedLine = line;
+
+      if (side === 'new' && isSpecialRevision(ref)) {
+        if (
+          isSpecialRevision(diffData.baseCommitish) ||
+          fallbackLine === undefined ||
+          Array.isArray(line) ||
+          Array.isArray(fallbackLine)
+        ) {
+          showHistory({
+            kind: 'unavailable',
+            filePath: file.path,
+            reason: 'This line has not been committed yet, so it has no exact line history.',
+          });
+          return;
+        }
+        path = file.oldPath ?? file.path;
+        ref = diffData.baseCommitish;
+        resolvedLine = fallbackLine;
+      }
+
+      if (!ref || isSpecialRevision(ref)) {
+        showHistory({
+          kind: 'unavailable',
+          filePath: path,
+          reason: 'This line does not map to a committed file version.',
+        });
+        return;
+      }
+      const [startLine, endLine] = Array.isArray(resolvedLine)
+        ? resolvedLine
+        : [resolvedLine, resolvedLine];
+      showHistory({ kind: 'line', filePath: path, ref, startLine, endLine, side });
+    },
+    [diffData, showHistory],
+  );
+
+  const openHistoryCommit = useCallback(
+    async (entry: HistoryCommitEntry) => {
+      const response = await fetch(`/api/commits/${encodeURIComponent(entry.hash)}`);
+      if (!response.ok) return;
+      const details = (await response.json()) as GitCommitDetails;
+      await openSelectionInNewTab(details.selection, {
+        details,
+        focus: {
+          filePath: entry.path,
+          line: entry.focusLine,
+          side: entry.focusSide,
+        },
+      });
+    },
+    [openSelectionInNewTab],
+  );
+
+  useEffect(() => {
+    const focus = activeTab?.focus;
+    if (!focus || !diffData) return;
+    const fileIndex = diffData.files.findIndex(
+      (file) => file.path === focus.filePath || file.oldPath === focus.filePath,
+    );
+    if (fileIndex < 0) {
+      updateActiveTab((tab) => ({ ...tab, focus: undefined }));
+      return;
+    }
+    const file = diffData.files[fileIndex];
+    if (!file) return;
+    setCollapsedFiles((current) => {
+      const next = new Set(current);
+      next.delete(file.path);
+      return next;
+    });
+    ensureFileRendered(file.path);
+    requestAnimationFrame(() => {
+      scrollFileIntoDiffContainer(file.path);
+      if (focus.line !== undefined) {
+        const navigationSide = focus.side === 'old' ? 'left' : 'right';
+        for (let chunkIndex = 0; chunkIndex < file.chunks.length; chunkIndex += 1) {
+          const chunk = file.chunks[chunkIndex];
+          const lineIndex = chunk?.lines.findIndex((line) =>
+            focus.side === 'old'
+              ? line.oldLineNumber === focus.line
+              : line.newLineNumber === focus.line,
+          );
+          if (lineIndex !== undefined && lineIndex >= 0) {
+            setCursorPosition({ fileIndex, chunkIndex, lineIndex, side: navigationSide });
+            break;
+          }
+        }
+      }
+      updateActiveTab((tab) => ({ ...tab, focus: undefined }));
+    });
+  }, [
+    activeTab?.focus,
+    diffData,
+    ensureFileRendered,
+    scrollFileIntoDiffContainer,
+    setCursorPosition,
+    updateActiveTab,
+  ]);
 
   // Clear comments and viewed files on initial load if requested via CLI flag
   const hasCleanedRef = useRef(false);
@@ -1210,6 +1651,26 @@ function App() {
   return (
     <WordHighlightProvider>
       <div className="h-screen flex flex-col" onClickCapture={handleGlobalClick}>
+        <DiffTabsBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          commitLookupAvailable={diffData.capabilities?.commitLookup === true}
+          onActivate={activateTab}
+          onClose={closeTab}
+          onOpenHash={openCommitHash}
+        />
+        {activeTab?.commitDetails && (
+          <CommitDetailsPanel
+            details={activeTab.commitDetails}
+            expanded={activeTab.commitDetailsExpanded}
+            onToggle={() =>
+              updateActiveTab((tab) => ({
+                ...tab,
+                commitDetailsExpanded: !tab.commitDetailsExpanded,
+              }))
+            }
+          />
+        )}
         <header
           className={`bg-github-bg-secondary border-b border-github-border flex ${
             isMobile ? 'flex-col' : 'flex-row items-center'
@@ -1422,7 +1883,7 @@ function App() {
         <GitGraphModal
           isOpen={isGitGraphOpen}
           onClose={() => setIsGitGraphOpen(false)}
-          onCompare={(selection) => void handleRevisionChange(selection)}
+          onCompare={(selection) => void openSelectionInNewTab(selection)}
         />
 
         {isMobile && isFileTreeOpen && (
@@ -1554,6 +2015,12 @@ function App() {
                       onRemoveMessage={removeMessage}
                       onUpdateMessage={updateMessage}
                       onOpenInEditor={canOpenInEditor ? handleOpenInEditor : undefined}
+                      onShowFileHistory={
+                        diffData.capabilities?.history ? showFileHistory : undefined
+                      }
+                      onShowLineHistory={
+                        diffData.capabilities?.history ? showLineHistory : undefined
+                      }
                       syntaxTheme={settings.syntaxTheme}
                       wrapCodeLines={settings.wrapCodeLines}
                       baseCommitish={diffData.baseCommitish}
@@ -1598,6 +2065,18 @@ function App() {
               );
             })}
           </main>
+
+          {historyTarget && (
+            <HistoryPanel
+              target={historyTarget}
+              mobile={isMobile}
+              onClose={() => {
+                setHistoryTarget(null);
+                updateActiveTab((tab) => ({ ...tab, historyTarget: undefined }));
+              }}
+              onOpenCommit={(entry) => void openHistoryCommit(entry)}
+            />
+          )}
         </div>
 
         {showMobileCommentsBar && (

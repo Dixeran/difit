@@ -121,6 +121,10 @@ const buildDiffPayload = (diff: DiffResponse): DiffResponse => ({
   ...diff,
   clearComments: false,
   openInEditorAvailable: false,
+  capabilities: {
+    commitLookup: false,
+    history: false,
+  },
 });
 
 export const installStaticApiBridge = (dataset: StaticDiffDataset): StaticApiBridge => {

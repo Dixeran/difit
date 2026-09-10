@@ -1759,4 +1759,103 @@ describe('GitDiffParser Git graph', () => {
       commits: [],
     });
   });
+
+  describe('commit and history metadata', () => {
+    it('resolves a short SHA and builds its first-parent diff selection', async () => {
+      const parser = new GitDiffParser(TEST_REPO_PATH);
+      const git = (parser as any).git;
+      const hash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      const parent = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      git.revparse.mockResolvedValue(`${hash}\n`);
+      git.raw.mockImplementation((args: string[]) => {
+        if (args[0] === 'show' && args.includes('-s')) {
+          return Promise.resolve(
+            [
+              hash,
+              parent,
+              'Ada',
+              'ada@example.com',
+              '2026-01-02T00:00:00Z',
+              'Grace',
+              'grace@example.com',
+              '2026-01-02T00:01:00Z',
+              'HEAD -> main',
+              'Subject',
+              'Body',
+            ].join('\0'),
+          );
+        }
+        if (args[0] === 'diff') return Promise.resolve('3\t1\tsrc/app.ts\n');
+        return Promise.reject(new Error(`Unexpected command: ${args.join(' ')}`));
+      });
+
+      await expect(parser.getCommitDetails('aaaaaaa')).resolves.toMatchObject({
+        hash,
+        subject: 'Subject',
+        body: 'Body',
+        filesChanged: 1,
+        additions: 3,
+        deletions: 1,
+        selection: { baseCommitish: parent, targetCommitish: hash },
+      });
+    });
+
+    it('rejects non-hex commit lookup input before invoking git', async () => {
+      const parser = new GitDiffParser(TEST_REPO_PATH);
+      await expect(parser.getCommitDetails('HEAD')).rejects.toThrow('hexadecimal SHA');
+      expect((parser as any).git.revparse).not.toHaveBeenCalled();
+    });
+
+    it('parses paged file history and rename paths', async () => {
+      const parser = new GitDiffParser(TEST_REPO_PATH);
+      const git = (parser as any).git;
+      git.revparse.mockResolvedValue('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n');
+      git.raw.mockResolvedValue(
+        [
+          '\x1e1111111111111111111111111111111111111111\x1f\x1fAda\x1fada@example.com\x1f2026-01-02T00:00:00Z\x1fRename',
+          '2\t1\tsrc/{old.ts => new.ts}',
+          '\x1e2222222222222222222222222222222222222222\x1f\x1fLinus\x1flinus@example.com\x1f2026-01-01T00:00:00Z\x1fOlder',
+          '1\t0\tsrc/old.ts',
+        ].join('\n'),
+      );
+
+      const result = await parser.getFileHistory('src/new.ts', 'HEAD', 0, 1);
+
+      expect(result.hasMore).toBe(true);
+      expect(result.nextOffset).toBe(1);
+      expect(result.entries[0]).toMatchObject({
+        path: 'src/new.ts',
+        previousPath: 'src/old.ts',
+        additions: 2,
+        deletions: 1,
+      });
+    });
+
+    it('parses line history patches and focus positions', async () => {
+      const parser = new GitDiffParser(TEST_REPO_PATH);
+      const git = (parser as any).git;
+      git.revparse.mockResolvedValue('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n');
+      git.raw.mockResolvedValue(
+        [
+          '\x1e1111111111111111111111111111111111111111\x1f\x1fAda\x1fada@example.com\x1f2026-01-02T00:00:00Z\x1fChange line',
+          '',
+          'diff --git a/src/app.ts b/src/app.ts',
+          '--- a/src/app.ts',
+          '+++ b/src/app.ts',
+          '@@ -4,1 +4,1 @@',
+          '-old',
+          '+new',
+        ].join('\n'),
+      );
+
+      const result = await parser.getLineHistory('src/app.ts', 'HEAD', 4, 4);
+
+      expect(result.entries[0]).toMatchObject({
+        path: 'src/app.ts',
+        focusSide: 'old',
+        focusLine: 4,
+      });
+      expect(result.entries[0]?.patch?.[0]?.lines).toHaveLength(2);
+    });
+  });
 });
