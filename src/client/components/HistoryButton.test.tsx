@@ -10,8 +10,9 @@ describe('HistoryButton', () => {
     expect(screen.getByRole('button', { name: 'Show line history' })).toHaveClass(
       'absolute',
       'top-1/2',
-      'h-7',
-      'w-7',
+      'h-5',
+      'w-5',
+      'right-[-4.5rem]',
     );
   });
 });

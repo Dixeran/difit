@@ -17,9 +17,9 @@ export function HistoryButton({ onClick, label = 'Show line history' }: HistoryB
         event.stopPropagation();
         onClick();
       }}
-      className="absolute -right-18 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-github-text-muted transition-all duration-150 hover:scale-110 hover:bg-github-bg-tertiary hover:text-github-accent"
+      className="absolute right-[-4.5rem] top-1/2 z-20 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded border border-github-border bg-github-bg-primary text-github-text-muted hover:bg-github-bg-tertiary hover:text-github-accent"
     >
-      <History size={13} />
+      <History size={12} />
     </button>
   );
 }
