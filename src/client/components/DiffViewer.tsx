@@ -391,6 +391,15 @@ export const DiffViewer = memo(function DiffViewer({
         <FileLevelTokensProvider value={fileLevelTokens}>
           <div className="overflow-y-auto">
             <ViewerComponent {...viewerProps} />
+            {!wrapCodeLines && (
+              <div
+                aria-hidden="true"
+                className="diff-file-scroll-controller"
+                data-diff-scroll-controller="true"
+              >
+                <div className="diff-file-scroll-canvas" />
+              </div>
+            )}
           </div>
         </FileLevelTokensProvider>
       )}

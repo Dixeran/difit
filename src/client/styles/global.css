@@ -103,23 +103,36 @@ tr.keyboard-cursor td {
   position: relative;
 }
 
-/* Each rendered code line owns a lightweight horizontal viewport. The
-   file-level scroll coordinator keeps every viewport, including both split
-   sides, at the same offset. Hide per-line scrollbars to avoid one scrollbar
-   per diff row; trackpads and Shift + wheel remain available. */
+/* A file has one horizontal scroll controller and one shared code canvas.
+   Line cells only clip that canvas; the controller updates a single inherited
+   offset so unified and split rows move as one surface. */
 .diff-code-scroll-pane {
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+.diff-code-scroll-content {
+  display: block;
+  width: var(--diff-code-scroll-width, max-content);
+  min-width: var(--diff-code-scroll-width, max-content);
+  transform: translate3d(calc(0px - var(--diff-code-scroll-left, 0px)), 0, 0);
+}
+
+.diff-file-scroll-controller {
+  width: 100%;
+  height: 1px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 
-.diff-code-scroll-content {
-  display: block;
-  min-width: var(--diff-code-scroll-width, max-content);
+.diff-file-scroll-canvas {
+  width: var(--diff-scroll-canvas-width, 100%);
+  height: 1px;
 }
 
-.diff-code-scroll-pane::-webkit-scrollbar {
+.diff-file-scroll-controller::-webkit-scrollbar {
   display: none;
 }
 

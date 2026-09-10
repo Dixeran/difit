@@ -8,7 +8,10 @@ import {
 } from 'react';
 
 const SCROLL_PANE_SELECTOR = '[data-diff-scroll-pane]';
-const SHARED_SCROLL_WIDTH_PROPERTY = '--diff-code-scroll-width';
+const SCROLL_CONTROLLER_SELECTOR = '[data-diff-scroll-controller]';
+const SHARED_CODE_WIDTH_PROPERTY = '--diff-code-scroll-width';
+const SCROLL_CANVAS_WIDTH_PROPERTY = '--diff-scroll-canvas-width';
+const SCROLL_OFFSET_PROPERTY = '--diff-code-scroll-left';
 
 interface UseSynchronizedHorizontalScrollOptions {
   containerRef: RefObject<HTMLElement | null>;
@@ -22,19 +25,14 @@ interface SynchronizedHorizontalScrollHandlers {
   onWheel: WheelEventHandler<HTMLElement>;
 }
 
-function getScrollPane(target: EventTarget | null, container: HTMLElement): HTMLElement | null {
-  if (!(target instanceof Element)) return null;
-  const pane = target.closest<HTMLElement>(SCROLL_PANE_SELECTOR);
-  return pane && container.contains(pane) ? pane : null;
-}
-
 function getWheelDelta(
   deltaX: number,
   deltaY: number,
   deltaMode: number,
   viewportWidth: number,
+  shiftKey: boolean,
 ): number {
-  const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+  const delta = shiftKey && Math.abs(deltaY) >= Math.abs(deltaX) ? deltaY : deltaX;
   if (deltaMode === WheelEvent.DOM_DELTA_LINE) return delta * 16;
   if (deltaMode === WheelEvent.DOM_DELTA_PAGE) return delta * viewportWidth;
   return delta;
@@ -46,8 +44,8 @@ export function useSynchronizedHorizontalScroll({
   resetKey,
   contentKey,
 }: UseSynchronizedHorizontalScrollOptions): SynchronizedHorizontalScrollHandlers {
-  const scrollLeftRef = useRef(0);
-  const expectedScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
+  const maxScrollLeftRef = useRef(0);
+  const smoothScrollTargetRef = useRef<number | null>(null);
 
   const getPanes = useCallback(
     () =>
@@ -55,92 +53,114 @@ export function useSynchronizedHorizontalScroll({
     [containerRef],
   );
 
-  const synchronize = useCallback(
-    (requestedScrollLeft: number, source?: HTMLElement) => {
-      const scrollLeft = Math.max(0, requestedScrollLeft);
-      scrollLeftRef.current = scrollLeft;
+  const getController = useCallback(
+    () => containerRef.current?.querySelector<HTMLElement>(SCROLL_CONTROLLER_SELECTOR) ?? null,
+    [containerRef],
+  );
 
-      getPanes().forEach((pane) => {
-        if (pane === source || pane.scrollLeft === scrollLeft) return;
-        pane.scrollLeft = scrollLeft;
-        // Browsers clamp short lines to their own maximum. Record the actual
-        // value so the resulting programmatic scroll event is not mistaken for
-        // a new user gesture that should pull every other line backwards.
-        expectedScrollPositionsRef.current.set(pane, pane.scrollLeft);
-      });
+  const setScrollOffset = useCallback(
+    (scrollLeft: number) => {
+      containerRef.current?.style.setProperty(SCROLL_OFFSET_PROPERTY, `${scrollLeft}px`);
     },
-    [getPanes],
+    [containerRef],
   );
 
   const refreshSharedScrollWidth = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Measure every line at its intrinsic width first. The largest line then
-    // becomes a shared canvas width, giving short lines the same horizontal
-    // range instead of letting the browser clamp their scrollLeft to zero.
-    container.style.removeProperty(SHARED_SCROLL_WIDTH_PROPERTY);
-    if (!enabled) return;
+    // Remove the previous shared width before measuring so every rendered line
+    // reports its intrinsic width. In split view, both sides participate in the
+    // same maximum and therefore share one file-level canvas.
+    container.style.removeProperty(SHARED_CODE_WIDTH_PROPERTY);
 
-    const panes = getPanes();
-    const sharedWidth = panes.reduce((maximum, pane) => Math.max(maximum, pane.scrollWidth), 0);
-    if (sharedWidth > 0) {
-      container.style.setProperty(SHARED_SCROLL_WIDTH_PROPERTY, `${Math.ceil(sharedWidth)}px`);
+    const controller = getController();
+    if (!enabled || !controller) {
+      maxScrollLeftRef.current = 0;
+      smoothScrollTargetRef.current = null;
+      container.style.removeProperty(SCROLL_CANVAS_WIDTH_PROPERTY);
+      container.style.removeProperty(SCROLL_OFFSET_PROPERTY);
+      return;
     }
 
+    const panes = getPanes();
+    const sharedCodeWidth = panes.reduce((maximum, pane) => Math.max(maximum, pane.scrollWidth), 0);
+    if (sharedCodeWidth <= 0) return;
+
     const maxScrollLeft = panes.reduce(
-      (maximum, pane) => Math.max(maximum, pane.scrollWidth - pane.clientWidth),
+      (maximum, pane) =>
+        pane.clientWidth > 0 ? Math.max(maximum, sharedCodeWidth - pane.clientWidth) : maximum,
       0,
     );
-    synchronize(Math.min(scrollLeftRef.current, maxScrollLeft));
-  }, [containerRef, enabled, getPanes, synchronize]);
+    const roundedCodeWidth = Math.ceil(sharedCodeWidth);
+    const roundedMaxScrollLeft = Math.max(0, Math.ceil(maxScrollLeft));
+    const controllerCanvasWidth = Math.ceil(controller.clientWidth + roundedMaxScrollLeft);
+
+    maxScrollLeftRef.current = roundedMaxScrollLeft;
+    container.style.setProperty(SHARED_CODE_WIDTH_PROPERTY, `${roundedCodeWidth}px`);
+    container.style.setProperty(SCROLL_CANVAS_WIDTH_PROPERTY, `${controllerCanvasWidth}px`);
+
+    const nextScrollLeft = Math.min(controller.scrollLeft, roundedMaxScrollLeft);
+    if (controller.scrollLeft !== nextScrollLeft) controller.scrollLeft = nextScrollLeft;
+    setScrollOffset(nextScrollLeft);
+
+    const target = smoothScrollTargetRef.current;
+    if (target !== null && target > roundedMaxScrollLeft) {
+      smoothScrollTargetRef.current = roundedMaxScrollLeft;
+    }
+  }, [containerRef, enabled, getController, getPanes, setScrollOffset]);
 
   const onScrollCapture = useCallback<UIEventHandler<HTMLElement>>(
     (event) => {
       if (!enabled) return;
-      const container = containerRef.current;
-      if (!container) return;
-      const pane = getScrollPane(event.target, container);
-      if (!pane) return;
+      const controller = getController();
+      if (!controller || event.target !== controller) return;
 
-      const expected = expectedScrollPositionsRef.current.get(pane);
-      if (expected !== undefined) {
-        expectedScrollPositionsRef.current.delete(pane);
-        if (expected === pane.scrollLeft) return;
+      const scrollLeft = Math.max(0, Math.min(controller.scrollLeft, maxScrollLeftRef.current));
+      setScrollOffset(scrollLeft);
+
+      const target = smoothScrollTargetRef.current;
+      if (target !== null && Math.abs(target - scrollLeft) < 0.5) {
+        smoothScrollTargetRef.current = null;
       }
-
-      synchronize(pane.scrollLeft, pane);
     },
-    [containerRef, enabled, synchronize],
+    [enabled, getController, setScrollOffset],
   );
 
   const onWheel = useCallback<WheelEventHandler<HTMLElement>>(
     (event) => {
-      if (!enabled || !event.shiftKey) return;
-      const container = containerRef.current;
-      if (!container) return;
-      const pane = getScrollPane(event.target, container);
-      if (!pane) return;
-      refreshSharedScrollWidth();
-      const delta = getWheelDelta(event.deltaX, event.deltaY, event.deltaMode, pane.clientWidth);
+      if (!enabled) return;
+      const hasHorizontalIntent = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      if (!hasHorizontalIntent) return;
+
+      const controller = getController();
+      const maxScrollLeft = maxScrollLeftRef.current;
+      if (!controller || maxScrollLeft <= 0) return;
+
+      const delta = getWheelDelta(
+        event.deltaX,
+        event.deltaY,
+        event.deltaMode,
+        controller.clientWidth,
+        event.shiftKey,
+      );
       if (delta === 0) return;
 
-      const panes = getPanes();
-      const maxScrollLeft = panes.reduce(
-        (maximum, pane) => Math.max(maximum, pane.scrollWidth - pane.clientWidth),
-        0,
-      );
-      if (maxScrollLeft <= 0) return;
-
+      const currentTarget = smoothScrollTargetRef.current ?? controller.scrollLeft;
+      const nextTarget = Math.max(0, Math.min(maxScrollLeft, currentTarget + delta));
+      smoothScrollTargetRef.current = nextTarget;
       event.preventDefault();
-      synchronize(Math.min(maxScrollLeft, scrollLeftRef.current + delta));
+      controller.scrollTo({ left: nextTarget, behavior: 'smooth' });
     },
-    [containerRef, enabled, getPanes, refreshSharedScrollWidth, synchronize],
+    [enabled, getController],
   );
 
   useLayoutEffect(() => {
-    scrollLeftRef.current = 0;
-    expectedScrollPositionsRef.current = new WeakMap();
+    maxScrollLeftRef.current = 0;
+    smoothScrollTargetRef.current = null;
+    const controller = getController();
+    if (controller) controller.scrollLeft = 0;
+    setScrollOffset(0);
     refreshSharedScrollWidth();
 
     const container = containerRef.current;
@@ -148,10 +168,10 @@ export function useSynchronizedHorizontalScroll({
     const observer = new ResizeObserver(refreshSharedScrollWidth);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [containerRef, enabled, refreshSharedScrollWidth, resetKey]);
+  }, [containerRef, enabled, getController, refreshSharedScrollWidth, resetKey, setScrollOffset]);
 
-  // Expanding folded ranges mounts new scroll panes. Bring them to the
-  // existing file-level offset without resetting the user's position.
+  // Expanding or collapsing a folded range mounts a different set of rows.
+  // Re-measure all visible lines while preserving the controller's offset.
   useLayoutEffect(() => {
     if (enabled) refreshSharedScrollWidth();
   }, [contentKey, enabled, refreshSharedScrollWidth]);
