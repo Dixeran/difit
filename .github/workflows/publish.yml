@@ -76,8 +76,9 @@ jobs:
           package_file="$(find release -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$package_file"
           mv "$package_file" release/difit-linux-x64.tgz
-          tar -tzf release/difit-linux-x64.tgz | grep -q '^package/dist/cli/index.js$'
-          tar -tzf release/difit-linux-x64.tgz | grep -q '^package/dist/client/index.html$'
+          tar -tzf release/difit-linux-x64.tgz > release/package-contents.txt
+          grep -qx 'package/dist/cli/index.js' release/package-contents.txt
+          grep -qx 'package/dist/client/index.html' release/package-contents.txt
           sha256sum release/difit-linux-x64.tgz > release/difit-linux-x64.tgz.sha256
 
       - name: Test packaged CLI on Linux x64
