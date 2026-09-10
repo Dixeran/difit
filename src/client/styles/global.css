@@ -114,6 +114,11 @@ tr.keyboard-cursor td {
   scrollbar-width: none;
 }
 
+.diff-code-scroll-content {
+  display: block;
+  min-width: var(--diff-code-scroll-width, max-content);
+}
+
 .diff-code-scroll-pane::-webkit-scrollbar {
   display: none;
 }

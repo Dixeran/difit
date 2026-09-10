@@ -62,6 +62,7 @@ describe('DiffChunk range comments', () => {
     expect(unifiedPanes).toHaveLength(testChunk.lines.length);
     expect(unifiedPanes[0]).toHaveClass('diff-code-scroll-pane');
     expect(unifiedPanes[0]?.firstElementChild).toHaveClass('whitespace-pre');
+    expect(unifiedPanes[0]?.firstElementChild).toHaveClass('diff-code-scroll-content');
     unified.unmount();
 
     const split = renderWithProviders(<SideBySideDiffChunk {...sharedProps} />);
@@ -71,6 +72,8 @@ describe('DiffChunk range comments', () => {
     expect(rightPane).toHaveClass('diff-code-scroll-pane');
     expect(leftPane?.firstElementChild).toHaveClass('whitespace-pre');
     expect(rightPane?.firstElementChild).toHaveClass('whitespace-pre');
+    expect(leftPane?.firstElementChild).toHaveClass('diff-code-scroll-content');
+    expect(rightPane?.firstElementChild).toHaveClass('diff-code-scroll-content');
   });
 
   it('opens a unified range comment with shift-click', async () => {

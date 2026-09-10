@@ -709,7 +709,7 @@ export function SideBySideDiffChunk({
                             className={`block px-3 text-github-text-primary select-text ${
                               wrapCodeLines
                                 ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
-                                : 'min-w-max whitespace-pre'
+                                : 'diff-code-scroll-content whitespace-pre'
                             }`}
                           />
                         ) : (
@@ -718,7 +718,7 @@ export function SideBySideDiffChunk({
                             className={`block px-3 text-github-text-primary select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit ${
                               wrapCodeLines
                                 ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
-                                : 'min-w-max whitespace-pre'
+                                : 'diff-code-scroll-content whitespace-pre'
                             }`}
                             syntaxTheme={syntaxTheme}
                             filename={filename}
@@ -781,7 +781,7 @@ export function SideBySideDiffChunk({
                             className={`block px-3 text-github-text-primary select-text ${
                               wrapCodeLines
                                 ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
-                                : 'min-w-max whitespace-pre'
+                                : 'diff-code-scroll-content whitespace-pre'
                             }`}
                           />
                         ) : (
@@ -790,7 +790,7 @@ export function SideBySideDiffChunk({
                             className={`block px-3 text-github-text-primary select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit ${
                               wrapCodeLines
                                 ? 'min-w-0 flex-1 whitespace-pre-wrap break-all overflow-wrap-break-word'
-                                : 'min-w-max whitespace-pre'
+                                : 'diff-code-scroll-content whitespace-pre'
                             }`}
                             syntaxTheme={syntaxTheme}
                             filename={filename}

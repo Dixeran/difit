@@ -11,17 +11,17 @@ function setPaneDimensions(element: HTMLElement, scrollWidth: number, clientWidt
   });
 }
 
-function Harness({ enabled = true }: { enabled?: boolean }) {
+function Harness({ enabled = true, contentKey = 1 }: { enabled?: boolean; contentKey?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const handlers = useSynchronizedHorizontalScroll({
     containerRef,
     enabled,
     resetKey: 'file.ts',
-    contentKey: 1,
+    contentKey,
   });
 
   return (
-    <div ref={containerRef} {...handlers}>
+    <div ref={containerRef} data-testid="container" {...handlers}>
       <div data-testid="left" data-diff-scroll-pane="left">
         <span>left</span>
       </div>
@@ -48,7 +48,7 @@ describe('useSynchronizedHorizontalScroll', () => {
     const { getByTestId } = render(<Harness />);
     const left = getByTestId('left');
     const right = getByTestId('right');
-    setPaneDimensions(left, 500, 200);
+    setPaneDimensions(left, 200, 200);
     setPaneDimensions(right, 700, 200);
 
     const wheelEvent = new Event('wheel', { bubbles: true, cancelable: true });
@@ -63,6 +63,20 @@ describe('useSynchronizedHorizontalScroll', () => {
     expect(wheelEvent.defaultPrevented).toBe(true);
     expect(left.scrollLeft).toBe(80);
     expect(right.scrollLeft).toBe(80);
+  });
+
+  it('uses the longest line as a shared canvas width for every row', () => {
+    const view = render(<Harness />);
+    const left = view.getByTestId('left');
+    const right = view.getByTestId('right');
+    setPaneDimensions(left, 350, 200);
+    setPaneDimensions(right, 900, 200);
+
+    view.rerender(<Harness contentKey={2} />);
+
+    expect(view.getByTestId('container').style.getPropertyValue('--diff-code-scroll-width')).toBe(
+      '900px',
+    );
   });
 
   it('leaves ordinary vertical scrolling and wrapped mode untouched', () => {

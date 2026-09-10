@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 const SCROLL_PANE_SELECTOR = '[data-diff-scroll-pane]';
+const SHARED_SCROLL_WIDTH_PROPERTY = '--diff-code-scroll-width';
 
 interface UseSynchronizedHorizontalScrollOptions {
   containerRef: RefObject<HTMLElement | null>;
@@ -71,6 +72,29 @@ export function useSynchronizedHorizontalScroll({
     [getPanes],
   );
 
+  const refreshSharedScrollWidth = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Measure every line at its intrinsic width first. The largest line then
+    // becomes a shared canvas width, giving short lines the same horizontal
+    // range instead of letting the browser clamp their scrollLeft to zero.
+    container.style.removeProperty(SHARED_SCROLL_WIDTH_PROPERTY);
+    if (!enabled) return;
+
+    const panes = getPanes();
+    const sharedWidth = panes.reduce((maximum, pane) => Math.max(maximum, pane.scrollWidth), 0);
+    if (sharedWidth > 0) {
+      container.style.setProperty(SHARED_SCROLL_WIDTH_PROPERTY, `${Math.ceil(sharedWidth)}px`);
+    }
+
+    const maxScrollLeft = panes.reduce(
+      (maximum, pane) => Math.max(maximum, pane.scrollWidth - pane.clientWidth),
+      0,
+    );
+    synchronize(Math.min(scrollLeftRef.current, maxScrollLeft));
+  }, [containerRef, enabled, getPanes, synchronize]);
+
   const onScrollCapture = useCallback<UIEventHandler<HTMLElement>>(
     (event) => {
       if (!enabled) return;
@@ -97,6 +121,7 @@ export function useSynchronizedHorizontalScroll({
       if (!container) return;
       const pane = getScrollPane(event.target, container);
       if (!pane) return;
+      refreshSharedScrollWidth();
       const delta = getWheelDelta(event.deltaX, event.deltaY, event.deltaMode, pane.clientWidth);
       if (delta === 0) return;
 
@@ -110,20 +135,26 @@ export function useSynchronizedHorizontalScroll({
       event.preventDefault();
       synchronize(Math.min(maxScrollLeft, scrollLeftRef.current + delta));
     },
-    [containerRef, enabled, getPanes, synchronize],
+    [containerRef, enabled, getPanes, refreshSharedScrollWidth, synchronize],
   );
 
   useLayoutEffect(() => {
     scrollLeftRef.current = 0;
     expectedScrollPositionsRef.current = new WeakMap();
-    synchronize(0);
-  }, [enabled, resetKey, synchronize]);
+    refreshSharedScrollWidth();
+
+    const container = containerRef.current;
+    if (!enabled || !container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(refreshSharedScrollWidth);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [containerRef, enabled, refreshSharedScrollWidth, resetKey]);
 
   // Expanding folded ranges mounts new scroll panes. Bring them to the
   // existing file-level offset without resetting the user's position.
   useLayoutEffect(() => {
-    if (enabled) synchronize(scrollLeftRef.current);
-  }, [contentKey, enabled, synchronize]);
+    if (enabled) refreshSharedScrollWidth();
+  }, [contentKey, enabled, refreshSharedScrollWidth]);
 
   return { onScrollCapture, onWheel };
 }

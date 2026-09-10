@@ -62,7 +62,7 @@ export function DiffCodeLine({
 
   const codeClassName = wrapCodeLines
     ? 'block min-w-0 px-3 text-github-text-primary whitespace-pre-wrap break-all overflow-wrap-break-word select-text'
-    : 'block min-w-max px-3 text-github-text-primary whitespace-pre select-text';
+    : 'diff-code-scroll-content block px-3 text-github-text-primary whitespace-pre select-text';
   const prismClassName = `${codeClassName} [&_pre]:m-0 [&_pre]:p-0 [&_pre]:!bg-transparent [&_pre]:font-inherit [&_pre]:text-inherit [&_pre]:leading-inherit [&_code]:!bg-transparent [&_code]:font-inherit [&_code]:text-inherit [&_code]:leading-inherit`;
 
   return (
