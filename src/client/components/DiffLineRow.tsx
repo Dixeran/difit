@@ -7,6 +7,7 @@ import { CommentButton } from './CommentButton';
 import { DiffCodeLine } from './DiffCodeLine';
 import { OpenInEditorButton } from './OpenInEditorButton';
 import { HistoryButton } from './HistoryButton';
+import { LineActions } from './LineActions';
 import type { AppearanceSettings } from './SettingsModal';
 
 interface DiffLineRowProps {
@@ -85,11 +86,11 @@ export const DiffLineRow: React.FC<DiffLineRowProps> = React.memo(
         <td className="w-[var(--line-number-width)] min-w-[var(--line-number-width)] max-w-[var(--line-number-width)] px-2 text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible">
           <span>{line.newLineNumber || ''}</span>
           {showLineActions && (
-            <>
+            <LineActions>
               {onShowHistory && <HistoryButton onClick={onShowHistory} />}
               {onOpenInEditor && <OpenInEditorButton onClick={onOpenInEditor} />}
               <CommentButton onMouseDown={onCommentButtonMouseDown} />
-            </>
+            </LineActions>
           )}
         </td>
         <td className="p-0 w-full relative align-top">

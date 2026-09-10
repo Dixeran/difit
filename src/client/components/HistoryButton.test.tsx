@@ -2,17 +2,23 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { HistoryButton } from './HistoryButton';
+import { LineActions } from './LineActions';
 
 describe('HistoryButton', () => {
-  it('is absolutely positioned so appearing on hover does not change the row height', () => {
-    render(<HistoryButton onClick={vi.fn()} />);
+  it('uses the fixed-height line action toolbar without affecting row layout', () => {
+    render(
+      <LineActions>
+        <HistoryButton onClick={vi.fn()} />
+      </LineActions>,
+    );
 
-    expect(screen.getByRole('button', { name: 'Show line history' })).toHaveClass(
+    expect(screen.getByRole('button', { name: 'Show line history' })).toHaveClass('h-5', 'w-5');
+    expect(screen.getByRole('button', { name: 'Show line history' })).not.toHaveClass('absolute');
+    expect(document.querySelector('[data-line-actions="true"]')).toHaveClass(
       'absolute',
-      'top-1/2',
+      'right-0',
+      'top-0',
       'h-5',
-      'w-5',
-      'right-[-4.5rem]',
     );
   });
 });

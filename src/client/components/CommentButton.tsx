@@ -11,7 +11,7 @@ export const CommentButton: React.FC<CommentButtonProps> = React.memo(
     return (
       <button
         type="button"
-        className="absolute -right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded transition-all duration-150 hover:scale-110 z-10"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
         data-comment-button="true"
         style={{
           backgroundColor: 'var(--color-yellow-btn-bg)',
@@ -30,7 +30,7 @@ export const CommentButton: React.FC<CommentButtonProps> = React.memo(
         onClick={(e) => e.stopPropagation()}
         title={title}
       >
-        <MessageSquare className="w-4 h-4" />
+        <MessageSquare className="h-3.5 w-3.5" />
       </button>
     );
   },

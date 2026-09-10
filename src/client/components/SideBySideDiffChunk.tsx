@@ -22,6 +22,7 @@ import { CommentThreadCard } from './CommentThreadCard';
 import { EnhancedPrismSyntaxHighlighter } from './EnhancedPrismSyntaxHighlighter';
 import { OpenInEditorButton } from './OpenInEditorButton';
 import { HistoryButton } from './HistoryButton';
+import { LineActions } from './LineActions';
 import type { AppearanceSettings } from './SettingsModal';
 import { WordLevelDiffHighlighter } from './WordLevelDiffHighlighter';
 
@@ -668,7 +669,7 @@ export function SideBySideDiffChunk({
                     <span>{sideLine.oldLineNumber || ''}</span>
                     {hoveredLine?.side === 'old' &&
                       hoveredLine?.lineNumber === sideLine.oldLineNumber && (
-                        <>
+                        <LineActions>
                           {onShowLineHistory && oldSelection && (
                             <HistoryButton
                               onClick={() =>
@@ -700,7 +701,7 @@ export function SideBySideDiffChunk({
                               });
                             }}
                           />
-                        </>
+                        </LineActions>
                       )}
                   </td>
                   <td
@@ -750,7 +751,7 @@ export function SideBySideDiffChunk({
                     <span>{sideLine.newLineNumber || ''}</span>
                     {hoveredLine?.side === 'new' &&
                       hoveredLine?.lineNumber === sideLine.newLineNumber && (
-                        <>
+                        <LineActions>
                           {onShowLineHistory && newSelection && (
                             <HistoryButton
                               onClick={() =>
@@ -783,7 +784,7 @@ export function SideBySideDiffChunk({
                               });
                             }}
                           />
-                        </>
+                        </LineActions>
                       )}
                   </td>
                   <td

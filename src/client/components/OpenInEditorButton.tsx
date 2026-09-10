@@ -11,7 +11,7 @@ export const OpenInEditorButton: React.FC<OpenInEditorButtonProps> = React.memo(
   ({ onClick, title = 'Open in editor', className }) => {
     return (
       <button
-        className={`absolute -right-10 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded transition-all duration-150 hover:scale-110 z-10 ${className || ''}`}
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${className || ''}`}
         data-open-in-editor-button="true"
         style={{
           backgroundColor: 'var(--color-editor-btn-bg)',
@@ -35,7 +35,7 @@ export const OpenInEditorButton: React.FC<OpenInEditorButtonProps> = React.memo(
         }}
         title={title}
       >
-        <ExternalLink className="w-4 h-4 opacity-80" />
+        <ExternalLink className="h-3.5 w-3.5 opacity-80" />
       </button>
     );
   },
