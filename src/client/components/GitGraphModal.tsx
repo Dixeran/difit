@@ -6,7 +6,6 @@ import {
   GitBranch,
   GitCompareArrows,
   LoaderCircle,
-  RefreshCw,
   Search,
   X,
 } from 'lucide-react';
@@ -165,6 +164,7 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
       const response = await fetch(`/api/git-graph${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error('Failed to load the Git graph');
       const nextData = (await response.json()) as GitGraphResponse;
+      if (controller.signal.aborted) return;
       setData(nextData);
       setPendingBranches(nextData.selectedBranches);
       setSelectedCommits((current) =>
@@ -186,6 +186,8 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
 
   useEffect(() => {
     if (!isOpen) return;
+    setData(null);
+    setPendingBranches([]);
     setSelectedCommits([]);
     setBranchQuery('');
     setCommitQuery('');
@@ -197,6 +199,11 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
       enableScope('navigation');
     };
   }, [disableScope, enableScope, isOpen, loadGraph]);
+
+  useEffect(() => {
+    if (!isOpen || !data || sameStringSet(pendingBranches, data.selectedBranches)) return;
+    void loadGraph(pendingBranches);
+  }, [data, isOpen, loadGraph, pendingBranches]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -234,9 +241,6 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
 
   const graphRows = useMemo(() => buildGitGraphRows(filteredCommits), [filteredCommits]);
   const graphWidth = Math.max(54, ...graphRows.map((row) => row.laneCount * LANE_WIDTH + 18));
-  const branchSelectionChanged = data
-    ? !sameStringSet(pendingBranches, data.selectedBranches)
-    : false;
 
   if (!isOpen) return null;
 
@@ -318,7 +322,8 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                 <span className="text-xs font-semibold uppercase tracking-wide text-github-text-secondary">
                   Branches
                 </span>
-                <span className="text-xs text-github-text-muted">
+                <span className="flex items-center gap-1.5 text-xs text-github-text-muted">
+                  {loading && data && <LoaderCircle size={11} className="animate-spin" />}
                   {pendingBranches.length} selected
                 </span>
               </div>
@@ -400,21 +405,6 @@ export function GitGraphModal({ isOpen, onClose, onCompare }: GitGraphModalProps
                   </label>
                 );
               })}
-            </div>
-            <div className="border-t border-github-border p-3">
-              <button
-                type="button"
-                disabled={!branchSelectionChanged || loading}
-                onClick={() => void loadGraph(pendingBranches)}
-                className="flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? (
-                  <LoaderCircle size={13} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={13} />
-                )}
-                Update graph
-              </button>
             </div>
           </aside>
 
