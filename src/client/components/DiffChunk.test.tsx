@@ -76,7 +76,7 @@ describe('DiffChunk range comments', () => {
     expect(rightPane?.firstElementChild).toHaveClass('diff-code-scroll-content');
   });
 
-  it('keeps line actions in a dedicated lane outside line numbers and code', () => {
+  it('anchors floating line actions to the compact line number gutter', () => {
     const sharedProps = {
       chunk: testChunk,
       chunkIndex: 0,
@@ -97,9 +97,7 @@ describe('DiffChunk range comments', () => {
     fireEvent.mouseEnter(unifiedRow);
 
     const unifiedActionCell = unifiedRow.children[1]!;
-    expect(unifiedActionCell).toHaveClass(
-      'w-[calc(var(--line-number-width)+var(--line-actions-width))]',
-    );
+    expect(unifiedActionCell).toHaveClass('w-[var(--line-number-width)]');
     expect(unifiedActionCell.querySelector('span')).toHaveClass('w-[var(--line-number-width)]');
     expect(unifiedActionCell.querySelector('[data-line-actions="true"]')).not.toBeNull();
     expect(unifiedRow.children[2]!.querySelector('[data-line-actions="true"]')).toBeNull();
@@ -110,9 +108,7 @@ describe('DiffChunk range comments', () => {
     fireEvent.mouseMove(splitRow.children[0]!);
 
     const splitActionCell = splitRow.children[0]!;
-    expect(splitActionCell).toHaveClass(
-      'w-[calc(var(--line-number-width)+var(--line-actions-width))]',
-    );
+    expect(splitActionCell).toHaveClass('w-[var(--line-number-width)]');
     expect(splitActionCell.querySelector('span')).toHaveClass('w-[var(--line-number-width)]');
     expect(splitActionCell.querySelector('[data-line-actions="true"]')).not.toBeNull();
     expect(splitRow.children[1]!.querySelector('[data-line-actions="true"]')).toBeNull();

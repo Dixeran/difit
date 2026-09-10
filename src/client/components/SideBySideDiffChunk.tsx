@@ -664,7 +664,7 @@ export function SideBySideDiffChunk({
                   {/* Old side */}
                   <td
                     id={oldLineNavId}
-                    className={`w-[calc(var(--line-number-width)+var(--line-actions-width))] min-w-[calc(var(--line-number-width)+var(--line-actions-width))] max-w-[calc(var(--line-number-width)+var(--line-actions-width))] text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible ${highlightOldCell ? cellHighlightClass : ''}`}
+                    className={`w-[var(--line-number-width)] min-w-[var(--line-number-width)] max-w-[var(--line-number-width)] text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible ${highlightOldCell ? cellHighlightClass : ''}`}
                   >
                     <span className="absolute left-0 top-0 w-[var(--line-number-width)] px-2 text-right">
                       {sideLine.oldLineNumber || ''}
@@ -748,7 +748,7 @@ export function SideBySideDiffChunk({
                   {/* New side */}
                   <td
                     id={newLineNavId}
-                    className={`w-[calc(var(--line-number-width)+var(--line-actions-width))] min-w-[calc(var(--line-number-width)+var(--line-actions-width))] max-w-[calc(var(--line-number-width)+var(--line-actions-width))] text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible ${highlightNewCell ? cellHighlightClass : ''}`}
+                    className={`w-[var(--line-number-width)] min-w-[var(--line-number-width)] max-w-[var(--line-number-width)] text-right text-github-text-muted bg-github-bg-secondary border-r border-github-border select-none align-top relative overflow-visible ${highlightNewCell ? cellHighlightClass : ''}`}
                   >
                     <span className="absolute left-0 top-0 w-[var(--line-number-width)] px-2 text-right">
                       {sideLine.newLineNumber || ''}

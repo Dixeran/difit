@@ -16,9 +16,12 @@ describe('HistoryButton', () => {
     expect(screen.getByRole('button', { name: 'Show line history' })).not.toHaveClass('absolute');
     expect(document.querySelector('[data-line-actions="true"]')).toHaveClass(
       'absolute',
-      'right-0',
+      'left-full',
       'top-0',
       'h-5',
+      'opacity-40',
+      'hover:opacity-100',
+      'focus-within:opacity-100',
     );
   });
 });
